@@ -1,0 +1,776 @@
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  font-family: 'Courier New', 'Consolas', monospace;
+  background: #0f172a;
+  color: #e2e8f0;
+  line-height: 1.5;
+  overflow-x: hidden;
+  image-rendering: pixelated;
+}
+body.dashboard-fullpage { min-height: 100vh; }
+
+/* ===== Layout ===== */
+.sidepanel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+}
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 16px 24px;
+}
+.dashboard-body {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.dashboard-zones { flex: 1; min-width: 0; }
+.dashboard-workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dashboard-sidebar { width: 340px; flex-shrink: 0; }
+
+/* ===== Workspace Canvas ===== */
+.workspace-container {
+  flex-shrink: 0;
+  min-height: 200px;
+  position: relative;
+  background: #c8b89a;
+  border: 1px solid #d4c4a8;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidepanel .workspace-container {
+  min-height: 400px;
+  border-left: none;
+  border-right: none;
+}
+.dashboard .workspace-container {
+  border-radius: 10px;
+  min-height: 400px;
+  flex: 1;
+}
+.workspace-canvas {
+  display: block;
+  width: 100%;
+}
+
+/* ===== Header ===== */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+.dashboard-header {
+  border-radius: 10px;
+  margin-bottom: 16px;
+  border-bottom: none;
+}
+.app-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: -0.02em;
+}
+.btn { cursor: pointer; border: none; border-radius: 6px; font-size: 0.8rem; padding: 4px 10px; transition: background 0.15s; }
+.btn-sm { padding: 2px 8px; }
+.btn-dash { background: #334155; color: #94a3b8; font-size: 1rem; }
+.btn-dash:hover { background: #475569; color: #e2e8f0; }
+.btn-sim { background: #2563eb; color: #fff; }
+.btn-sim:hover { background: #1d4ed8; }
+
+/* ===== Demo Controls ===== */
+.demo-controls {
+  padding: 8px 12px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+.demo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #94a3b8;
+  user-select: none;
+}
+.toggle-label input { display: none; }
+.toggle-slider {
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  background: #475569;
+  border-radius: 9px;
+  position: relative;
+  transition: background 0.2s;
+}
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #e2e8f0;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-label input:checked + .toggle-slider { background: #2563eb; }
+.toggle-label input:checked + .toggle-slider::after { transform: translateX(14px); }
+
+.conn-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.conn-ws { background: #166534; color: #86efac; }
+.conn-polling { background: #854d0e; color: #fde047; }
+.conn-disconnected { background: #7f1d1d; color: #fca5a5; }
+.conn-Demo { background: #1e3a5f; color: #7dd3fc; }
+
+.demo-buttons { margin-top: 8px; display: flex; gap: 6px; }
+
+/* ===== Status Bar ===== */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  flex-wrap: wrap;
+}
+.status-total { font-size: 0.85rem; color: #64748b; font-weight: 600; }
+.status-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.status-pill {
+  font-size: 0.75rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ===== Zone Board ===== */
+.zone-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px 12px;
+}
+.dashboard .zone-board {
+  gap: 16px;
+  padding: 0;
+}
+
+.zone {
+  background: #1e293b;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+.zone-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 2px solid;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.zone-emoji { font-size: 1rem; }
+.zone-label { flex: 1; }
+.zone-count {
+  background: #334155;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+.zone-agents { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 50px; }
+.zone-empty { color: #475569; font-size: 0.75rem; text-align: center; padding: 12px; }
+
+/* ===== Agent Card ===== */
+.agent-card {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #0f172a;
+  border-radius: 8px;
+  border-left: 3px solid var(--state-color);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.2s;
+  position: relative;
+  animation: cardEnter 0.3s ease-out;
+}
+.agent-card:hover { background: #1a2744; transform: translateX(2px); }
+.agent-card.compact { padding: 6px; }
+
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.agent-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e293b;
+  border-radius: 50%;
+  font-size: 1.1rem;
+}
+.compact .agent-avatar { width: 28px; height: 28px; font-size: 0.9rem; }
+
+.state-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #0f172a;
+}
+.compact .state-dot { width: 8px; height: 8px; }
+
+/* Pulse for blocked */
+.state-blocked .state-dot {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0); }
+}
+
+/* Spin for working */
+.state-working .agent-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--state-color);
+  animation: spin 2s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.agent-info { flex: 1; min-width: 0; }
+.agent-name { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 4px; }
+.compact .agent-name { font-size: 0.75rem; }
+.collab-badge { font-size: 0.7rem; }
+.agent-role { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.agent-state { font-size: 0.7rem; font-weight: 600; margin-top: 2px; }
+.agent-task { font-size: 0.7rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.agent-blocked-reason { font-size: 0.65rem; color: #fca5a5; margin-top: 2px; }
+
+/* Agent context menu */
+.agent-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  animation: menuIn 0.15s ease-out;
+}
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.agent-menu-title { font-size: 0.65rem; color: #64748b; padding: 2px 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+.agent-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.agent-menu-btn:hover { background: #334155; }
+.agent-menu-btn.active { background: #334155; font-weight: 700; }
+.menu-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ===== Event Log ===== */
+.event-log {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: #1e293b;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+.sidepanel .event-log {
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid #334155;
+}
+.event-log-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-bottom: 1px solid #334155;
+  color: #94a3b8;
+}
+.event-log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  max-height: 300px;
+}
+.dashboard .event-log-list { max-height: none; }
+
+.event-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  animation: eventIn 0.25s ease-out;
+}
+.event-item:hover { background: #0f172a; }
+@keyframes eventIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.event-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+.event-body { flex: 1; min-width: 0; }
+.event-headline { color: #cbd5e1; }
+.event-detail { color: #64748b; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.event-time { color: #475569; font-size: 0.75rem; white-space: nowrap; margin-top: 2px; }
+.event-empty { color: #475569; text-align: center; padding: 20px; font-size: 0.85rem; }
+
+/* event type accents */
+.event-blocked { border-left: 2px solid #dc2626; }
+.event-unblocked { border-left: 2px solid #16a34a; }
+.event-task_completed { border-left: 2px solid #2563eb; }
+.event-collaboration_started { border-left: 2px solid #9333ea; }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* ===== Dashboard specific ===== */
+.dashboard .zone-board {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  height: 100%;
+}
+.dashboard .zone { display: flex; flex-direction: column; }
+.dashboard .zone-agents { flex: 1; overflow-y: auto; }
+.dashboard .status-bar { border-radius: 10px; margin-bottom: 16px; border-bottom: none; }
+.dashboard .demo-controls { background: none; border: none; padding: 0; }
+
+/* ===== Agent Selection ===== */
+.agent-card.agent-selected {
+  background: #1e3a5f;
+  box-shadow: 0 0 0 2px #38bdf8, 0 0 12px rgba(56, 189, 248, 0.25);
+  border-left-color: #38bdf8;
+}
+.selection-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid #38bdf8;
+  animation: selectionPulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes selectionPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.12); }
+}
+
+/* ===== RPG Skill Sheet Overlay ===== */
+.rpg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  animation: rpgOverlayIn 0.2s ease-out;
+  overflow-y: auto;
+  padding: 20px 8px;
+}
+.sidepanel .rpg-overlay {
+  padding: 0;
+  align-items: stretch;
+}
+@keyframes rpgOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rpg-skill-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: #0c1222;
+  border: 3px solid #475569;
+  border-image: repeating-linear-gradient(
+    90deg,
+    #475569 0px, #475569 4px,
+    #38bdf8 4px, #38bdf8 8px,
+    #475569 8px, #475569 12px
+  ) 3;
+  box-shadow:
+    inset 0 0 30px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(56, 189, 248, 0.1),
+    0 16px 48px rgba(0, 0, 0, 0.6);
+  padding: 0;
+  animation: rpgSheetIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+.sidepanel .rpg-skill-sheet {
+  max-width: none;
+  border-radius: 0;
+  min-height: 100vh;
+}
+@keyframes rpgSheetIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.rpg-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background: #1e293b;
+  border: 2px solid #475569;
+  color: #94a3b8;
+  width: 28px;
+  height: 28px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.rpg-close:hover {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+/* ─── RPG Header ─── */
+.rpg-header {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(180deg, #1a2744 0%, #0c1222 100%);
+  border-bottom: 2px solid #334155;
+}
+.rpg-avatar-frame {
+  position: relative;
+  width: 80px;
+  height: 90px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e293b;
+  border: 2px solid #475569;
+}
+.rpg-avatar-sprite { font-size: 1.8rem; }
+.rpg-state-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid;
+  animation: rpgRingSpin 4s linear infinite;
+}
+@keyframes rpgRingSpin {
+  from { clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%, 50% 50%); }
+  to { clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%); }
+}
+
+.rpg-header-info { flex: 1; min-width: 0; }
+.rpg-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+}
+.rpg-class {
+  font-size: 0.8rem;
+  color: #a78bfa;
+  font-style: italic;
+  letter-spacing: 0.06em;
+}
+.rpg-role-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  background: #334155;
+  color: #94a3b8;
+  padding: 0 6px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.rpg-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.rpg-state-badge {
+  font-size: 0.6rem;
+  padding: 1px 8px;
+  color: #fff;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.rpg-health {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+.rpg-level {
+  font-size: 0.7rem;
+  color: #38bdf8;
+  margin-top: 2px;
+  font-weight: 700;
+}
+.rpg-xp {
+  font-weight: 400;
+  color: #64748b;
+}
+
+/* ─── RPG Sections ─── */
+.rpg-section {
+  padding: 10px 16px;
+  border-bottom: 1px solid #1e293b;
+}
+.rpg-section:last-child { border-bottom: none; }
+
+.rpg-section-title {
+  font-size: 0.75rem;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  margin-bottom: 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px dashed #334155;
+}
+
+/* ─── Current Quest ─── */
+.rpg-task-section {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.08) 0%, transparent 100%);
+}
+.rpg-task-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+.rpg-task-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* ─── Skills ─── */
+.rpg-skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rpg-skill-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+.rpg-skill-name {
+  width: 100px;
+  flex-shrink: 0;
+  color: #94a3b8;
+  text-align: right;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.rpg-skill-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  overflow: hidden;
+  position: relative;
+}
+.rpg-skill-bar-fill {
+  height: 100%;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+}
+/* Pixelated bar segments */
+.rpg-skill-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 3px,
+    rgba(0,0,0,0.25) 3px,
+    rgba(0,0,0,0.25) 4px
+  );
+}
+.rpg-skill-rank {
+  width: 14px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.rpg-skill-val {
+  width: 24px;
+  text-align: right;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+/* ─── Tools / Equipment ─── */
+.rpg-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rpg-tool-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  text-transform: capitalize;
+}
+.rpg-tool-badge:hover {
+  border-color: #38bdf8;
+  color: #e2e8f0;
+}
+
+/* ─── Status / Stats Grid ─── */
+.rpg-stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rpg-stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.rpg-stat-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.rpg-stat-value {
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  text-align: right;
+}
+.rpg-stat-blocked .rpg-stat-value {
+  color: #fca5a5;
+}
+
+/* ─── Performance Metrics ─── */
+.rpg-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.rpg-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 8px 4px;
+}
+.rpg-metric-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+.rpg-metric-label {
+  font-size: 0.65rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* ─── Recent Events / Adventure Log ─── */
+.rpg-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rpg-event-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  padding: 3px 0;
+  border-bottom: 1px dotted #1e293b;
+}
+.rpg-event-row:last-child { border-bottom: none; }
+.rpg-event-icon { font-size: 0.9rem; flex-shrink: 0; }
+.rpg-event-label { flex: 1; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rpg-event-time { color: #475569; font-size: 0.7rem; flex-shrink: 0; }
+
+/* ─── RPG Pixel Preview Canvas ─── */
+.rpg-preview-canvas {
+  image-rendering: pixelated;
+  width: 80px;
+  height: 80px;
+}

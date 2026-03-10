@@ -1,0 +1,20 @@
+{
+  "name": "openclaw-agent-workspace-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch",
+    "icons": "node scripts/generate-icons.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "canvas": "^3.2.1",
+    "esbuild": "^0.24.0",
+    "pngjs": "^7.0.0"
+  }
+}
