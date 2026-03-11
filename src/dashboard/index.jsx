@@ -13,7 +13,7 @@ function Dashboard() {
   return (
     <div className="dashboard">
       <header className="app-header dashboard-header">
-        <h1 className="app-title">OpenClaw Agent Workspace</h1>
+        <h1 className="app-title">Visual Claw</h1>
         <DemoControls />
       </header>
 

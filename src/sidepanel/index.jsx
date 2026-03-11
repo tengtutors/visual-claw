@@ -21,7 +21,7 @@ function SidePanel() {
   return (
     <div className="sidepanel">
       <header className="app-header">
-        <h1 className="app-title">OpenClaw Monitor</h1>
+        <h1 className="app-title">Visual Claw</h1>
         <button className="btn btn-sm btn-dash" onClick={openDashboard} title="Open full dashboard">
           ↗
         </button>
