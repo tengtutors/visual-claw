@@ -14,6 +14,8 @@ export default function PixiOfficeMap() {
   const cleanupRef = useRef(() => {});
   const [hoveredAgent, setHoveredAgent] = useState(null);
   const [loadError, setLoadError] = useState('');
+  const [debugCoords, setDebugCoords] = useState(null);
+  const DEBUG_COORDS = true; // Set to false to disable coordinate overlay
   const { agents, selectedAgentId } = useStore();
   const { selectAgent, deselectAgent } = useActions();
   const agentsRef = useRef(agents);
@@ -45,6 +47,9 @@ export default function PixiOfficeMap() {
     const hitId = controller.hitTest(mapCoords.x, mapCoords.y);
 
     if (mode === 'hover') {
+      if (DEBUG_COORDS) {
+        setDebugCoords({ x: Math.round(mapCoords.x), y: Math.round(mapCoords.y), screenX: localX, screenY: localY });
+      }
       if (hitId !== hoveredRef.current) {
         setHoveredAgent(hitId);
         app.canvas.style.cursor = hitId ? 'pointer' : 'default';
@@ -157,8 +162,26 @@ export default function PixiOfficeMap() {
   }, [handlePointer]);
 
   return (
-    <div className="workspace-container" ref={containerRef}>
+    <div className="workspace-container" ref={containerRef} style={{ position: 'relative' }}>
       {loadError ? <div className="workspace-error">Map failed to load: {loadError}</div> : null}
+      {DEBUG_COORDS && debugCoords && (
+        <div style={{
+          position: 'absolute',
+          left: debugCoords.screenX + 12,
+          top: debugCoords.screenY - 8,
+          background: 'rgba(0,0,0,0.85)',
+          color: '#0f0',
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          padding: '2px 6px',
+          borderRadius: '3px',
+          pointerEvents: 'none',
+          zIndex: 999,
+          whiteSpace: 'nowrap',
+        }}>
+          {debugCoords.x}, {debugCoords.y}
+        </div>
+      )}
     </div>
   );
 }

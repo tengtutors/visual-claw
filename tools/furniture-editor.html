@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Visual Claw — Furniture Editor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #eee; font-family: monospace; display: flex; flex-direction: column; height: 100vh; }
+
+  #top-bar {
+    background: #16213e; border-bottom: 2px solid #0f3460; padding: 8px;
+    display: flex; flex-direction: column; height: 360px; flex-shrink: 0;
+  }
+  #top-bar .header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+  }
+  #top-bar h2 { font-size: 13px; color: #e94560; }
+  #top-bar .help { font-size: 10px; color: #666; }
+  #mode-indicator {
+    background: #e94560; color: #fff; padding: 2px 10px; font-size: 11px; display: none;
+  }
+
+  #tileset-row { display: flex; flex: 1; gap: 8px; overflow: hidden; }
+  #tileset-wrap {
+    flex: 1; border: 1px solid #333; position: relative; cursor: crosshair;
+    overflow: auto;
+  }
+  #tileset-canvas { image-rendering: pixelated; display: block; }
+  #selection-box {
+    position: absolute; border: 2px solid #0f0; background: rgba(0,255,0,0.15);
+    pointer-events: none; display: none;
+  }
+  #preview-panel {
+    width: 200px; flex-shrink: 0; display: flex; flex-direction: column;
+    border: 1px solid #333; background: #111; padding: 8px;
+  }
+  #preview-panel canvas { image-rendering: pixelated; max-width: 100%; }
+  #preview-info { font-size: 10px; color: #888; margin-top: 6px; }
+  #placed-list-mini { flex: 1; overflow-y: auto; margin-top: 6px; }
+  .placed-item {
+    font-size: 9px; padding: 2px 3px; margin: 1px 0; background: #1a1a2e;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .placed-item .remove { color: #e94560; cursor: pointer; font-size: 13px; padding: 0 3px; }
+
+  #main-area {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    overflow: auto; padding: 12px;
+  }
+  #map-row { display: flex; align-items: flex-start; gap: 12px; }
+  #map { image-rendering: pixelated; cursor: crosshair; border: 1px solid #333; }
+  #coords { color: #0f0; font-size: 13px; margin-top: 6px; text-align: center; }
+  #controls { margin-top: 8px; text-align: center; }
+  #controls button {
+    background: #0f3460; color: #fff; border: 1px solid #e94560; padding: 5px 14px;
+    cursor: pointer; font-family: monospace; font-size: 11px; margin: 3px;
+  }
+  #controls button:hover { background: #e94560; }
+  #output {
+    margin-top: 8px; width: 90%; max-width: 700px; background: #111; color: #0f0;
+    border: 1px solid #333; font-family: monospace; font-size: 10px; padding: 6px;
+    display: none; resize: vertical;
+  }
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <div class="header">
+    <h2>1. Click & drag on tileset to select a piece</h2>
+    <span class="help">Selection snaps to 32px grid. Then click on the map below to place it.</span>
+    <span id="mode-indicator">PLACING MODE — click on map</span>
+  </div>
+  <div id="tileset-row">
+    <div id="tileset-wrap">
+      <canvas id="tileset-canvas"></canvas>
+      <div id="selection-box"></div>
+    </div>
+    <div id="preview-panel">
+      <strong style="font-size:10px;color:#888">Preview</strong>
+      <div id="preview-content"></div>
+      <div id="preview-info">No selection</div>
+      <strong style="font-size:10px;color:#888;margin-top:6px">Placed (<span id="placed-count">0</span>)</strong>
+      <div id="placed-list-mini"></div>
+    </div>
+  </div>
+</div>
+
+<div id="main-area">
+  <canvas id="map"></canvas>
+  <div id="coords">Move mouse over map</div>
+  <p style="font-size:10px;color:#555">Left-click: place / drag | Right-click: remove</p>
+  <div id="controls">
+    <button onclick="exportLayout()">Export JSON</button>
+    <button onclick="clearAll()">Clear All</button>
+    <button onclick="loadCurrent()">Load Current</button>
+  </div>
+  <textarea id="output" rows="16" readonly></textarea>
+</div>
+
+<script>
+const TILE = 32;
+const SCALE = 1.95;
+const ST = TILE * SCALE;
+const ROOM_COLS = 12;
+const ROOM_ROWS = 13;
+const ROOM_OX = 115;
+const ROOM_OY = 46;
+const MAP_W = 980;
+const MAP_H = 980;
+const VIEW_SCALE = 0.85;
+const TILESET_ZOOM = 3;
+
+const mapCanvas = document.getElementById('map');
+const mapCtx = mapCanvas.getContext('2d');
+mapCanvas.width = MAP_W * VIEW_SCALE;
+mapCanvas.height = MAP_H * VIEW_SCALE;
+
+const tsCanvas = document.getElementById('tileset-canvas');
+const tsCtx = tsCanvas.getContext('2d');
+
+let tileset = null;
+let selectedSrc = null;
+let placedItems = [];
+let dragItem = null;
+let dragOffX = 0, dragOffY = 0;
+let selStart = null, selEnd = null, isSelecting = false;
+
+const img = new Image();
+img.onload = () => {
+  tileset = img;
+  tsCanvas.width = img.width * TILESET_ZOOM;
+  tsCanvas.height = img.height * TILESET_ZOOM;
+  drawTileset();
+  drawMap();
+};
+img.src = '../public/assets/office/tilesets/Office Tileset All 32x32 no shadow.png';
+
+function drawTileset() {
+  if (!tileset) return;
+  tsCtx.imageSmoothingEnabled = false;
+  tsCtx.clearRect(0, 0, tsCanvas.width, tsCanvas.height);
+  tsCtx.drawImage(tileset, 0, 0, tsCanvas.width, tsCanvas.height);
+  tsCtx.strokeStyle = 'rgba(255,100,100,0.2)';
+  tsCtx.lineWidth = 1;
+  const cols = tileset.width / TILE, rows = tileset.height / TILE;
+  for (let r = 0; r <= rows; r++) {
+    const y = r * TILE * TILESET_ZOOM;
+    tsCtx.beginPath(); tsCtx.moveTo(0, y); tsCtx.lineTo(tsCanvas.width, y); tsCtx.stroke();
+  }
+  for (let c = 0; c <= cols; c++) {
+    const x = c * TILE * TILESET_ZOOM;
+    tsCtx.beginPath(); tsCtx.moveTo(x, 0); tsCtx.lineTo(x, tsCanvas.height); tsCtx.stroke();
+  }
+}
+
+const selBox = document.getElementById('selection-box');
+function snapToGrid(val) { return Math.round(val / TILE) * TILE; }
+
+function getTilesetCoords(e) {
+  const rect = tsCanvas.getBoundingClientRect();
+  // getBoundingClientRect already accounts for scroll, so no need to add scrollLeft/Top
+  const x = (e.clientX - rect.left) / TILESET_ZOOM;
+  const y = (e.clientY - rect.top) / TILESET_ZOOM;
+  return { x, y };
+}
+
+tsCanvas.addEventListener('mousedown', (e) => {
+  const { x, y } = getTilesetCoords(e);
+  selStart = { x: snapToGrid(x), y: snapToGrid(y) };
+  selEnd = { x: selStart.x + TILE, y: selStart.y + TILE };
+  isSelecting = true;
+  updateSelectionBox();
+});
+
+tsCanvas.addEventListener('mousemove', (e) => {
+  if (!isSelecting) return;
+  const { x, y } = getTilesetCoords(e);
+  selEnd = { x: snapToGrid(x) + TILE, y: snapToGrid(y) + TILE };
+  updateSelectionBox();
+});
+
+tsCanvas.addEventListener('mouseup', () => {
+  if (!isSelecting) return;
+  isSelecting = false;
+  finalizeSelection();
+});
+
+function updateSelectionBox() {
+  if (!selStart || !selEnd) return;
+  const x1 = Math.min(selStart.x, selEnd.x), y1 = Math.min(selStart.y, selEnd.y);
+  const x2 = Math.max(selStart.x, selEnd.x), y2 = Math.max(selStart.y, selEnd.y);
+  selBox.style.display = 'block';
+  selBox.style.left = (x1 * TILESET_ZOOM) + 'px';
+  selBox.style.top = (y1 * TILESET_ZOOM) + 'px';
+  selBox.style.width = ((x2 - x1) * TILESET_ZOOM) + 'px';
+  selBox.style.height = ((y2 - y1) * TILESET_ZOOM) + 'px';
+}
+
+function finalizeSelection() {
+  if (!selStart || !selEnd) return;
+  const x1 = Math.min(selStart.x, selEnd.x), y1 = Math.min(selStart.y, selEnd.y);
+  const x2 = Math.max(selStart.x, selEnd.x), y2 = Math.max(selStart.y, selEnd.y);
+  const w = x2 - x1, h = y2 - y1;
+  if (w < TILE || h < TILE) return;
+  selectedSrc = { x: x1, y: y1, w, h };
+
+  const pw = document.getElementById('preview-content');
+  pw.innerHTML = '';
+  const pc = document.createElement('canvas');
+  const pScale = Math.min(4, 180 / Math.max(w, h));
+  pc.width = w * pScale; pc.height = h * pScale;
+  const pctx = pc.getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+  pctx.drawImage(tileset, x1, y1, w, h, 0, 0, pc.width, pc.height);
+  pw.appendChild(pc);
+  document.getElementById('preview-info').textContent = `(${x1}, ${y1}) ${w}×${h}px`;
+  document.getElementById('mode-indicator').style.display = 'inline';
+}
+
+function worldToCanvas(wx, wy) { return { x: wx * VIEW_SCALE, y: wy * VIEW_SCALE }; }
+function canvasToWorld(cx, cy) { return { x: cx / VIEW_SCALE, y: cy / VIEW_SCALE }; }
+
+function drawMap() {
+  mapCtx.imageSmoothingEnabled = false;
+  mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+  if (!tileset) { requestAnimationFrame(drawMap); return; }
+
+  const floorSrc = { x: 64, y: 224, w: 32, h: 32 };
+  for (let r = 0; r < ROOM_ROWS; r++) {
+    for (let c = 0; c < ROOM_COLS; c++) {
+      const isWall = r < 3 || r >= ROOM_ROWS - 1 || c === 0 || c === ROOM_COLS - 1;
+      if (isWall) continue;
+      const wx = ROOM_OX + c * ST, wy = ROOM_OY + r * ST;
+      const p = worldToCanvas(wx, wy);
+      mapCtx.drawImage(tileset, floorSrc.x, floorSrc.y, floorSrc.w, floorSrc.h,
+        p.x, p.y, ST * VIEW_SCALE, ST * VIEW_SCALE);
+    }
+  }
+
+  // Grid
+  mapCtx.strokeStyle = 'rgba(255,255,255,0.03)';
+  mapCtx.lineWidth = 0.5;
+  for (let r = 3; r <= ROOM_ROWS - 1; r++) {
+    const y = (ROOM_OY + r * ST) * VIEW_SCALE;
+    mapCtx.beginPath();
+    mapCtx.moveTo((ROOM_OX + ST) * VIEW_SCALE, y);
+    mapCtx.lineTo((ROOM_OX + (ROOM_COLS - 1) * ST) * VIEW_SCALE, y);
+    mapCtx.stroke();
+  }
+  for (let c = 1; c <= ROOM_COLS - 1; c++) {
+    const x = (ROOM_OX + c * ST) * VIEW_SCALE;
+    mapCtx.beginPath();
+    mapCtx.moveTo(x, (ROOM_OY + 3 * ST) * VIEW_SCALE);
+    mapCtx.lineTo(x, (ROOM_OY + (ROOM_ROWS - 1) * ST) * VIEW_SCALE);
+    mapCtx.stroke();
+  }
+
+  // Placed items sorted by y
+  const sorted = [...placedItems].sort((a, b) => a.y - b.y);
+  for (const item of sorted) {
+    const p = worldToCanvas(item.x, item.y);
+    const sw = item.src.w * SCALE * VIEW_SCALE;
+    const sh = item.src.h * SCALE * VIEW_SCALE;
+    mapCtx.drawImage(tileset, item.src.x, item.src.y, item.src.w, item.src.h, p.x, p.y, sw, sh);
+    if (item === dragItem) {
+      mapCtx.strokeStyle = '#0f0'; mapCtx.lineWidth = 2;
+      mapCtx.strokeRect(p.x, p.y, sw, sh);
+    }
+  }
+
+  requestAnimationFrame(drawMap);
+}
+
+mapCanvas.addEventListener('mousemove', (e) => {
+  const rect = mapCanvas.getBoundingClientRect();
+  const w = canvasToWorld(e.clientX - rect.left, e.clientY - rect.top);
+  document.getElementById('coords').textContent = `World: ${Math.round(w.x)}, ${Math.round(w.y)}`;
+  if (dragItem) {
+    dragItem.x = Math.round(w.x - dragOffX);
+    dragItem.y = Math.round(w.y - dragOffY);
+    updatePlacedList();
+  }
+});
+
+mapCanvas.addEventListener('mousedown', (e) => {
+  if (e.button === 2) return;
+  const rect = mapCanvas.getBoundingClientRect();
+  const w = canvasToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+  for (let i = placedItems.length - 1; i >= 0; i--) {
+    const item = placedItems[i];
+    const iw = item.src.w * SCALE, ih = item.src.h * SCALE;
+    if (w.x >= item.x && w.x <= item.x + iw && w.y >= item.y && w.y <= item.y + ih) {
+      dragItem = item;
+      dragOffX = w.x - item.x; dragOffY = w.y - item.y;
+      return;
+    }
+  }
+
+  if (selectedSrc) {
+    placedItems.push({ id: 'item_' + Date.now(), src: { ...selectedSrc }, x: Math.round(w.x), y: Math.round(w.y) });
+    updatePlacedList();
+  }
+});
+
+mapCanvas.addEventListener('mouseup', () => { dragItem = null; });
+
+mapCanvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const rect = mapCanvas.getBoundingClientRect();
+  const w = canvasToWorld(e.clientX - rect.left, e.clientY - rect.top);
+  for (let i = placedItems.length - 1; i >= 0; i--) {
+    const item = placedItems[i];
+    const iw = item.src.w * SCALE, ih = item.src.h * SCALE;
+    if (w.x >= item.x && w.x <= item.x + iw && w.y >= item.y && w.y <= item.y + ih) {
+      placedItems.splice(i, 1);
+      updatePlacedList();
+      return;
+    }
+  }
+});
+
+function updatePlacedList() {
+  document.getElementById('placed-count').textContent = placedItems.length;
+  const list = document.getElementById('placed-list-mini');
+  list.innerHTML = '';
+  for (let i = 0; i < placedItems.length; i++) {
+    const item = placedItems[i];
+    const div = document.createElement('div');
+    div.className = 'placed-item';
+    div.innerHTML = `<span>src(${item.src.x},${item.src.y} ${item.src.w}×${item.src.h}) @ (${item.x},${item.y})</span><span class="remove" data-idx="${i}">×</span>`;
+    div.querySelector('.remove').addEventListener('click', () => {
+      placedItems.splice(i, 1);
+      updatePlacedList();
+    });
+    list.appendChild(div);
+  }
+}
+
+function exportLayout() {
+  const output = placedItems.map(item => ({ src: item.src, x: item.x, y: item.y }));
+  const el = document.getElementById('output');
+  el.style.display = 'block';
+  el.value = JSON.stringify(output, null, 2);
+  el.select();
+}
+
+function clearAll() { placedItems = []; updatePlacedList(); }
+
+function loadCurrent() {
+  const current = [
+    { src: {x:288,y:256,w:96,h:64}, x:178, y:180 },
+    { src: {x:0,y:0,w:96,h:64}, x:258, y:276 },
+    { src: {x:448,y:544,w:64,h:64}, x:600, y:270 },
+    { src: {x:384,y:256,w:96,h:64}, x:660, y:270 },
+    { src: {x:128,y:0,w:96,h:64}, x:284, y:418 },
+    { src: {x:128,y:0,w:96,h:64}, x:468, y:418 },
+    { src: {x:128,y:512,w:64,h:64}, x:662, y:412 },
+    { src: {x:0,y:0,w:96,h:64}, x:284, y:556 },
+    { src: {x:0,y:0,w:96,h:64}, x:468, y:556 },
+    { src: {x:384,y:928,w:96,h:64}, x:662, y:628 },
+    { src: {x:256,y:928,w:64,h:64}, x:692, y:700 },
+    { src: {x:192,y:896,w:64,h:64}, x:620, y:700 },
+    { src: {x:0,y:960,w:64,h:64}, x:400, y:720 },
+  ];
+  placedItems = current.map((c, i) => ({ id: 'loaded_' + i, ...c }));
+  updatePlacedList();
+}
+
+drawMap();
+</script>
+</body>
+</html>

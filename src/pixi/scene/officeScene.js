@@ -13,14 +13,17 @@ import { MAP_W, MAP_H, OFFICE_LAYOUT, ROOM_LABELS } from '../../lib/office-map.j
 import { STATE_COLORS } from '../../lib/constants.js';
 import { getAssetUrl } from '../utils/assets.js';
 import { createCharacterLibrary, getCharacterKey } from '../utils/characters.js';
+import {
+  TILE, TILE_SCALE, SRC, TILESET_PATH,
+  ROOM_COLS, ROOM_ROWS, ROOM_ORIGIN_X, ROOM_ORIGIN_Y,
+  buildFloorGrid, FURNITURE_OBJECTS, SCALED_TILE,
+} from '../../lib/tile-map.js';
 
 const AGENT_WORLD_SCALE = 3.1;
 const VIEW_ZOOM = 1.08;
-const ROOM_ASSETS = {
-  'Office Level 2.png': 'assets/office/rooms/Office Level 2.png',
-};
 
-const FOREGROUND_SLICES = [];
+// Set to true to use tile-based rendering, false for legacy single-image
+const USE_TILE_RENDERER = true;
 
 function applyNearestScale(texture) {
   const source = texture?.source;
@@ -64,7 +67,6 @@ function getFrameIndex(sprite) {
 }
 
 export async function createOfficeScene(app) {
-  const workRoomTexture = await Assets.load(getAssetUrl(ROOM_ASSETS['Office Level 2.png']));
   const characterLibrary = new Map();
 
   const stage = app.stage;
@@ -80,28 +82,62 @@ export async function createOfficeScene(app) {
   root.addChild(backgroundLayer, worldLayer, overlayLayer);
   stage.addChild(root);
 
-  for (const room of OFFICE_LAYOUT.rooms) {
-    const roomSprite = new Sprite(workRoomTexture);
-    roomSprite.x = room.art.x;
-    roomSprite.y = room.art.y;
-    roomSprite.scale.set(room.art.scale);
-    applyNearestScale(roomSprite.texture);
-    roomSprite.roundPixels = true;
-    backgroundLayer.addChild(roomSprite);
+  if (USE_TILE_RENDERER) {
+    // --- Tile-based rendering ---
+    const tilesetTexture = await Assets.load(getAssetUrl(TILESET_PATH));
+    applyNearestScale(tilesetTexture);
+    const floorGrid = buildFloorGrid();
 
-    for (const slice of FOREGROUND_SLICES) {
-      const sliceTexture = new Texture({
-        source: workRoomTexture.source,
-        frame: new Rectangle(slice.x, slice.y, slice.w, slice.h),
+    // Render floor + wall tiles into backgroundLayer
+    for (let row = 0; row < floorGrid.length; row++) {
+      for (let col = 0; col < floorGrid[row].length; col++) {
+        const tileKey = floorGrid[row][col];
+        if (!tileKey) continue;
+        const srcRect = SRC[tileKey];
+        if (!srcRect) continue;
+
+        const tileTexture = new Texture({
+          source: tilesetTexture.source,
+          frame: new Rectangle(srcRect.x, srcRect.y, srcRect.w, srcRect.h),
+        });
+        applyNearestScale(tileTexture);
+
+        const tileSprite = new Sprite(tileTexture);
+        tileSprite.x = ROOM_ORIGIN_X + col * SCALED_TILE;
+        tileSprite.y = ROOM_ORIGIN_Y + row * SCALED_TILE;
+        tileSprite.scale.set(TILE_SCALE);
+        tileSprite.roundPixels = true;
+        backgroundLayer.addChild(tileSprite);
+      }
+    }
+
+    // Render furniture as individual sprites in worldLayer (Y-sorted)
+    for (const furniture of FURNITURE_OBJECTS) {
+      const furnitureTexture = new Texture({
+        source: tilesetTexture.source,
+        frame: new Rectangle(furniture.src.x, furniture.src.y, furniture.src.w, furniture.src.h),
       });
-      applyNearestScale(sliceTexture);
-      const sliceSprite = new Sprite(sliceTexture);
-      sliceSprite.x = room.art.x + slice.x * room.art.scale;
-      sliceSprite.y = room.art.y + slice.y * room.art.scale;
-      sliceSprite.scale.set(room.art.scale);
-      sliceSprite.roundPixels = true;
-      sliceSprite.zIndex = sliceSprite.y + slice.h * room.art.scale;
-      worldLayer.addChild(sliceSprite);
+      applyNearestScale(furnitureTexture);
+
+      const furnitureSprite = new Sprite(furnitureTexture);
+      furnitureSprite.x = furniture.x;
+      furnitureSprite.y = furniture.y;
+      furnitureSprite.scale.set(TILE_SCALE);
+      furnitureSprite.roundPixels = true;
+      furnitureSprite.zIndex = furniture.zAnchor;
+      worldLayer.addChild(furnitureSprite);
+    }
+  } else {
+    // --- Legacy single-image rendering ---
+    const workRoomTexture = await Assets.load(getAssetUrl('assets/office/rooms/Office Level 2.png'));
+    for (const room of OFFICE_LAYOUT.rooms) {
+      const roomSprite = new Sprite(workRoomTexture);
+      roomSprite.x = room.art.x;
+      roomSprite.y = room.art.y;
+      roomSprite.scale.set(room.art.scale);
+      applyNearestScale(roomSprite.texture);
+      roomSprite.roundPixels = true;
+      backgroundLayer.addChild(roomSprite);
     }
   }
 

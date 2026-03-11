@@ -1,22 +1,16 @@
+import { getFurnitureCollisions } from './tile-map.js';
+
 export const MAP_W = 980;
 export const MAP_H = 980;
 export const TILE = 32;
 
 const WALKABLE_AREAS = [
-  { x: 230, y: 246, w: 520, h: 500 },
+  { x: 178, y: 246, w: 620, h: 550 },
 ];
 
-const COLLISION_RECTS = [
-  { x: 258, y: 276, w: 154, h: 70 },
-  { x: 590, y: 276, w: 136, h: 48 },
-  { x: 284, y: 418, w: 108, h: 68 },
-  { x: 468, y: 418, w: 108, h: 68 },
-  { x: 662, y: 412, w: 100, h: 80 },
-  { x: 284, y: 556, w: 108, h: 68 },
-  { x: 468, y: 556, w: 108, h: 68 },
-  { x: 662, y: 628, w: 100, h: 68 },
-  { x: 692, y: 700, w: 78, h: 70 },
-];
+// Collision rects are now derived from furniture objects in tile-map.js
+// Each furniture object defines its own collision bounds.
+const COLLISION_RECTS = getFurnitureCollisions();
 
 const SPOT_OFFSETS = [
   { x: 0, y: 0 },
@@ -28,17 +22,13 @@ const SPOT_OFFSETS = [
 ];
 
 export const ZONE_BOUNDS = {
-  work: { x: 218, y: 246, w: 530, h: 470 },
-  meeting: { x: 218, y: 246, w: 530, h: 470 },
-  rest: { x: 218, y: 246, w: 530, h: 470 },
-  blocked: { x: 218, y: 246, w: 530, h: 470 },
+  work: { x: 230, y: 550, w: 500, h: 200 },
+  meeting: { x: 300, y: 246, w: 300, h: 200 },
+  rest: { x: 400, y: 246, w: 350, h: 200 },
+  blocked: { x: 230, y: 400, w: 250, h: 250 },
 };
 
-export const ROOM_LABELS = [
-  { id: 'work', text: 'Working', x: 420, y: 440 },
-  { id: 'rest', text: 'Rest Zone', x: 615, y: 300 },
-  { id: 'blocked', text: 'Blocked', x: 690, y: 640 },
-];
+export const ROOM_LABELS = [];
 
 export const ZONE_LABELS = Object.fromEntries(ROOM_LABELS.map((label) => [label.id, {
   x: label.x,
@@ -144,50 +134,52 @@ export function resolveWalkablePoint(zone, x, y, padding = 8) {
 }
 
 export const ZONE_SPOTS = {
+  // Working → near desks/computers (bottom area)
   work: [
-    { x: 300, y: 610, direction: 'up', posture: 'desk' },
-    { x: 305, y: 668, direction: 'up', posture: 'desk' },
-    { x: 488, y: 668, direction: 'up', posture: 'desk' },
-    { x: 690, y: 700, direction: 'up', posture: 'desk' },
-    { x: 305, y: 782, direction: 'up', posture: 'desk' },
-    { x: 488, y: 782, direction: 'up', posture: 'desk' },
-    { x: 395, y: 500, direction: 'down', posture: 'idle' },
-    { x: 575, y: 500, direction: 'down', posture: 'idle' },
+    { x: 265, y: 660, direction: 'right', posture: 'desk' },
+    { x: 479, y: 660, direction: 'right', posture: 'desk' },
+    { x: 335, y: 660, direction: 'right', posture: 'desk' },
+    { x: 549, y: 660, direction: 'right', posture: 'desk' },
+    { x: 265, y: 620, direction: 'right', posture: 'desk' },
+    { x: 479, y: 620, direction: 'right', posture: 'desk' },
+    { x: 335, y: 620, direction: 'right', posture: 'desk' },
+    { x: 549, y: 620, direction: 'right', posture: 'desk' },
   ],
+  // Meeting → center area near coffee machine / paintings
   meeting: [
-    { x: 294, y: 318, direction: 'right', posture: 'meeting' },
-    { x: 350, y: 318, direction: 'left', posture: 'meeting' },
-    { x: 294, y: 370, direction: 'down', posture: 'meeting' },
-    { x: 350, y: 370, direction: 'down', posture: 'meeting' },
+    { x: 400, y: 300, direction: 'down', posture: 'meeting' },
+    { x: 450, y: 300, direction: 'down', posture: 'meeting' },
+    { x: 400, y: 350, direction: 'right', posture: 'meeting' },
+    { x: 450, y: 350, direction: 'left', posture: 'meeting' },
   ],
+  // Idle/Rest → top-right near vending machine, water coolers
   rest: [
-    { x: 612, y: 470, direction: 'down', posture: 'idle' },
-    { x: 706, y: 470, direction: 'down', posture: 'idle' },
-    { x: 612, y: 536, direction: 'up', posture: 'idle' },
-    { x: 706, y: 536, direction: 'up', posture: 'idle' },
-    { x: 568, y: 336, direction: 'right', posture: 'idle' },
-    { x: 642, y: 336, direction: 'left', posture: 'idle' },
-    { x: 610, y: 378, direction: 'right', posture: 'idle' },
-    { x: 672, y: 378, direction: 'left', posture: 'idle' },
-    { x: 610, y: 404, direction: 'down', posture: 'idle' },
-    { x: 672, y: 404, direction: 'down', posture: 'idle' },
-    { x: 430, y: 316, direction: 'up', posture: 'idle' },
-    { x: 480, y: 316, direction: 'up', posture: 'idle' },
-    { x: 300, y: 316, direction: 'up', posture: 'idle' },
-    { x: 350, y: 316, direction: 'up', posture: 'idle' },
+    { x: 629, y: 330, direction: 'up', posture: 'idle' },
+    { x: 680, y: 330, direction: 'up', posture: 'idle' },
+    { x: 629, y: 380, direction: 'right', posture: 'idle' },
+    { x: 680, y: 380, direction: 'left', posture: 'idle' },
+    { x: 629, y: 280, direction: 'up', posture: 'idle' },
+    { x: 680, y: 280, direction: 'up', posture: 'idle' },
+    { x: 580, y: 330, direction: 'right', posture: 'idle' },
+    { x: 580, y: 380, direction: 'right', posture: 'idle' },
+    { x: 710, y: 330, direction: 'left', posture: 'idle' },
+    { x: 710, y: 380, direction: 'left', posture: 'idle' },
   ],
+  // Blocked → near shelves/crates top-left
   blocked: [
-    { x: 610, y: 690, direction: 'left', posture: 'blocked' },
-    { x: 708, y: 690, direction: 'right', posture: 'blocked' },
-    { x: 610, y: 744, direction: 'left', posture: 'blocked' },
-    { x: 708, y: 744, direction: 'right', posture: 'blocked' },
+    { x: 260, y: 580, direction: 'up', posture: 'blocked' },
+    { x: 320, y: 580, direction: 'up', posture: 'blocked' },
+    { x: 260, y: 630, direction: 'up', posture: 'blocked' },
+    { x: 320, y: 630, direction: 'up', posture: 'blocked' },
+    { x: 380, y: 580, direction: 'up', posture: 'blocked' },
+    { x: 380, y: 630, direction: 'up', posture: 'blocked' },
   ],
   fallback: [
-    { x: 286, y: 660, direction: 'down', posture: 'idle' },
-    { x: 394, y: 650, direction: 'down', posture: 'idle' },
-    { x: 512, y: 648, direction: 'down', posture: 'idle' },
-    { x: 630, y: 648, direction: 'down', posture: 'idle' },
-    { x: 520, y: 470, direction: 'down', posture: 'idle' },
+    { x: 400, y: 500, direction: 'down', posture: 'idle' },
+    { x: 500, y: 500, direction: 'down', posture: 'idle' },
+    { x: 600, y: 500, direction: 'down', posture: 'idle' },
+    { x: 350, y: 600, direction: 'down', posture: 'idle' },
+    { x: 500, y: 600, direction: 'down', posture: 'idle' },
   ],
 };
 

@@ -13,8 +13,8 @@ const ACTIVE_REPOSITION_MIN = 5000;
 const ACTIVE_REPOSITION_MAX = 10000;
 const AGENT_RADIUS = 10;
 const REST_ROUTE_WAYPOINTS = [
-  { x: 305, y: 720 },
-  { x: 560, y: 720 },
+  { x: 500, y: 500 },
+  { x: 500, y: 340 },
 ];
 
 function needsAisleDetour(sprite, targetX, targetY, spot) {
@@ -50,13 +50,16 @@ function setSpriteTarget(sprite, spot) {
   }
 }
 
+// Spawn point — bottom-right doormat / rug area
+const SPAWN_POINT = { x: 700, y: 730 };
+
 function createSpriteState(agent, takenPositions) {
   const zone = STATE_TO_ZONE[agent.state] || agent.zone || 'rest';
   const spot = pickSpot(zone, takenPositions);
   return {
     id: agent.id,
-    x: spot.x,
-    y: spot.y,
+    x: SPAWN_POINT.x + (Math.random() - 0.5) * 30,
+    y: SPAWN_POINT.y + (Math.random() - 0.5) * 20,
     targetX: spot.x,
     targetY: spot.y,
     direction: spot.direction || 'down',
