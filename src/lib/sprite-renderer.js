@@ -77,6 +77,31 @@ function loadSprites() {
 // Start loading immediately on module init
 loadSprites();
 
+// ─── Office Tileset loading ───
+// Tileset: 512×1024 = 16 cols × 32 rows of 32×32 tiles
+let tilesetImg = null;
+let tilesetReady = false;
+
+function loadTileset() {
+  tilesetImg = new Image();
+  tilesetImg.onload = () => { tilesetReady = true; };
+  tilesetImg.onerror = () => { console.warn('Failed to load office tileset'); };
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+    tilesetImg.src = chrome.runtime.getURL('sprites/office_tileset_32x32.png');
+  } else {
+    tilesetImg.src = '../sprites/office_tileset_32x32.png';
+  }
+}
+
+loadTileset();
+
+// Draw a region from the tileset (source in pixels)
+function ts(ctx, sx, sy, sw, sh, dx, dy, dw, dh) {
+  if (!tilesetImg || !tilesetReady) return false;
+  ctx.drawImage(tilesetImg, sx, sy, sw, sh, dx, dy, dw ?? sw, dh ?? sh);
+  return true;
+}
+
 // ─── Agent → character assignment (deterministic by ID hash) ───
 const agentCharMap = new Map();
 
@@ -98,17 +123,17 @@ function getCharacterIndex(agentId) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  OFFICE RENDERING (unchanged from v1)
+//  OFFICE RENDERING — v3 style (WorkspaceMap.jsx colors)
 // ═══════════════════════════════════════════════════════════
 
-const FLOOR_BASE = '#f0e6d3';
-const FLOOR_ALT  = '#e8dcc8';
-const WALL_COLOR = '#d4c4a8';
+const FLOOR_BASE = '#efe2cb';
+const FLOOR_ALT  = '#e6d9c0';
+const WALL_COLOR = '#d1c3aa';
 const ZONE_FLOORS = {
-  work:    { base: '#e8eef6', alt: '#dde5f0' },
-  meeting: { base: '#eee8f6', alt: '#e4dcf0' },
-  rest:    { base: '#e4f2e8', alt: '#d8eadc' },
-  blocked: { base: '#e8eef0', alt: '#dde6ea' },
+  work:    { base: '#f6efe3', alt: '#ede6d8' },
+  meeting: { base: '#f5ebf6', alt: '#ece2ee' },
+  rest:    { base: '#edf5ea', alt: '#e4ede0' },
+  blocked: { base: '#eef5fa', alt: '#e5ecf2' },
 };
 
 export function renderScene(ctx, width, height, sprites, agents, selectedAgentId, hoveredAgentId) {
@@ -119,7 +144,7 @@ export function renderScene(ctx, width, height, sprites, agents, selectedAgentId
   const offsetY = (height - MAP_H * scale) / 2;
 
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#c8b89a';
+  ctx.fillStyle = '#efe6d5';
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
@@ -152,7 +177,8 @@ function drawFloor(ctx) {
       ctx.fillRect(x, y, TILE, TILE);
     }
   }
-  ctx.strokeStyle = '#d4c4a822';
+  // Subtle grid lines
+  ctx.strokeStyle = '#d1c3aa18';
   ctx.lineWidth = 0.5;
   for (let x = 0; x <= MAP_W; x += TILE) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, MAP_H); ctx.stroke();
@@ -166,58 +192,46 @@ function drawFloor(ctx) {
 function drawZones(ctx) {
   for (const [zoneId, bounds] of Object.entries(ZONE_BOUNDS)) {
     const zoneFloor = ZONE_FLOORS[zoneId];
-    if (zoneId === 'blocked') {
-      const smallTile = 12;
-      for (let ty = bounds.y; ty < bounds.y + bounds.h; ty += smallTile) {
-        for (let tx = bounds.x; tx < bounds.x + bounds.w; tx += smallTile) {
-          ctx.fillStyle = ((tx / smallTile) + (ty / smallTile)) % 2 === 0 ? '#e8eef0' : '#d8e2e6';
-          ctx.fillRect(tx, ty, smallTile, smallTile);
-        }
-      }
-    } else {
-      for (let ty = bounds.y; ty < bounds.y + bounds.h; ty += TILE) {
-        for (let tx = bounds.x; tx < bounds.x + bounds.w; tx += TILE) {
-          ctx.fillStyle = ((tx / TILE) + (ty / TILE)) % 2 === 0 ? zoneFloor.base : zoneFloor.alt;
+    // Fill room with solid color (matching WorkspaceMap.jsx style)
+    ctx.fillStyle = zoneFloor.base;
+    ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
+
+    // Subtle checkerboard within room
+    for (let ty = bounds.y; ty < bounds.y + bounds.h; ty += TILE) {
+      for (let tx = bounds.x; tx < bounds.x + bounds.w; tx += TILE) {
+        if (((tx / TILE) + (ty / TILE)) % 2 !== 0) {
+          ctx.fillStyle = zoneFloor.alt;
           ctx.fillRect(tx, ty, TILE, TILE);
         }
       }
     }
-    const wt = 4;
-    ctx.fillStyle = WALL_COLOR;
-    ctx.fillRect(bounds.x, bounds.y, bounds.w, wt);
-    ctx.fillRect(bounds.x, bounds.y, wt, bounds.h);
-    ctx.fillRect(bounds.x + bounds.w - wt, bounds.y, wt, bounds.h);
-    ctx.fillRect(bounds.x, bounds.y + bounds.h - wt, bounds.w, wt);
-    ctx.fillStyle = '#00000008';
-    ctx.fillRect(bounds.x + wt, bounds.y + wt, bounds.w - wt * 2, 3);
-    ctx.fillRect(bounds.x + wt, bounds.y + wt, 3, bounds.h - wt * 2);
+
+    // Clean stroke border (like SVG strokeWidth="6")
+    ctx.strokeStyle = WALL_COLOR;
+    ctx.lineWidth = 6;
+    ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
   }
 }
 
 // ─── Zone Labels ───
 function drawZoneLabels(ctx) {
   for (const [, label] of Object.entries(ZONE_LABELS)) {
-    ctx.font = 'bold 13px "Courier New", monospace';
-    const textWidth = ctx.measureText(label.label).width;
-    const tabW = textWidth + 24;
-    const tabH = 22;
-    const tabX = label.x - tabW / 2;
-    const tabY = label.y + 8;
-    ctx.fillStyle = label.bg || '#fff';
-    ctx.fillRect(tabX, tabY, tabW, tabH);
-    ctx.fillStyle = label.color;
-    ctx.fillRect(tabX, tabY, tabW, 3);
+    // Larger, bolder labels matching WorkspaceMap.jsx (fontSize 24, fontWeight 700)
+    ctx.font = 'bold 24px "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(label.label, label.x, tabY + 5);
+    ctx.fillStyle = label.color;
+    ctx.fillText(label.label, label.x, label.y + 12);
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  FURNITURE DRAWING (unchanged from v1)
+//  FURNITURE DRAWING — v3 tileset-based
+//  Tileset: Office Tileset All 32x32.png (512×1024, 16×32 grid)
 // ═══════════════════════════════════════════════════════════
 
 function drawFurniture(ctx) {
+  ctx.imageSmoothingEnabled = false;
   for (const item of FURNITURE) {
     switch (item.type) {
       case 'workdesk':      drawWorkDesk(ctx, item.x, item.y); break;
@@ -240,447 +254,209 @@ function drawFurniture(ctx) {
       case 'playstation':   drawPlayStation(ctx, item.x, item.y); break;
     }
   }
+  ctx.imageSmoothingEnabled = true;
 }
 
-// ─── Work Room ───
+// ─── Work Room (tileset) ───
 
 function drawWorkDesk(ctx, x, y) {
-  ctx.fillStyle = '#00000010';
-  ctx.fillRect(x + 2, y + 28, 56, 5);
-  ctx.fillStyle = '#b8956a';
-  ctx.fillRect(x, y + 6, 56, 22);
-  ctx.fillStyle = '#d4a86a';
-  ctx.fillRect(x, y + 6, 56, 4);
-  ctx.fillStyle = '#9a7a52';
-  ctx.fillRect(x, y + 26, 56, 3);
-  ctx.fillStyle = '#888';
-  ctx.fillRect(x + 20, y + 2, 14, 5);
-  ctx.fillStyle = '#2a2a3e';
-  ctx.fillRect(x + 6, y - 20, 38, 24);
-  ctx.fillStyle = '#4a6fa5';
-  ctx.fillRect(x + 8, y - 18, 34, 20);
-  ctx.fillStyle = '#6a8fc5';
-  ctx.fillRect(x + 8, y - 18, 34, 3);
-  ctx.fillStyle = '#8ab4f8';
-  ctx.fillRect(x + 12, y - 12, 16, 2);
-  ctx.fillStyle = '#a8d8a8';
-  ctx.fillRect(x + 12, y - 8, 22, 2);
-  ctx.fillStyle = '#f8c08a';
-  ctx.fillRect(x + 12, y - 4, 14, 2);
-  ctx.fillStyle = '#444';
-  ctx.fillRect(x + 8, y + 10, 24, 10);
-  ctx.fillStyle = '#555';
-  ctx.fillRect(x + 9, y + 11, 22, 8);
-  ctx.fillStyle = '#666';
-  for (let i = 0; i < 4; i++) {
-    ctx.fillRect(x + 10 + i * 5, y + 12, 4, 2);
-    ctx.fillRect(x + 10 + i * 5, y + 15, 4, 2);
-  }
-  ctx.fillStyle = '#444';
-  ctx.fillRect(x + 38, y + 12, 8, 10);
-  ctx.fillStyle = '#555';
-  ctx.fillRect(x + 39, y + 13, 6, 4);
-  ctx.fillStyle = '#222';
-  ctx.fillRect(x + 48, y + 10, 6, 12);
-  ctx.fillStyle = '#333';
-  ctx.fillRect(x + 49, y + 11, 4, 8);
-  ctx.fillStyle = '#4a6fa540';
-  ctx.fillRect(x + 49, y + 12, 4, 5);
+  // Wooden desk surface (2×1 tiles from row 0)
+  ts(ctx, 0, 0, 64, 32, x - 4, y, 64, 32);
+  // Desk front panel (2×1 tiles from row 1)
+  ts(ctx, 0, 32, 64, 32, x - 4, y + 24, 64, 20);
+  // Computer monitor on desk (from row 14, col 8-9 area)
+  ts(ctx, 256, 448, 32, 32, x + 8, y - 28, 32, 32);
+  // Chair in front of desk
+  ts(ctx, 0, 320, 32, 32, x + 14, y + 36, 28, 28);
 }
 
 function drawPlant(ctx, x, y) {
-  ctx.fillStyle = '#b06030';
-  ctx.fillRect(x, y + 14, 20, 16);
-  ctx.fillStyle = '#c07040';
-  ctx.fillRect(x - 2, y + 12, 24, 5);
-  ctx.fillStyle = '#5c3a20';
-  ctx.fillRect(x + 2, y + 13, 16, 3);
-  ctx.fillStyle = '#2d8a4e';
-  ctx.fillRect(x + 2, y - 4, 16, 16);
-  ctx.fillRect(x - 6, y + 2, 12, 12);
-  ctx.fillRect(x + 14, y + 2, 12, 12);
-  ctx.fillStyle = '#3da85e';
-  ctx.fillRect(x + 4, y - 2, 10, 8);
+  // Potted plant (1×2 tiles from rows 18-19)
+  if (!ts(ctx, 64, 576, 32, 64, x - 4, y - 20, 32, 56)) {
+    // Fallback
+    ctx.fillStyle = '#2d8a4e';
+    ctx.fillRect(x, y - 4, 20, 20);
+    ctx.fillStyle = '#b06030';
+    ctx.fillRect(x + 2, y + 14, 16, 12);
+  }
 }
 
 function drawWaterCooler(ctx, x, y) {
-  ctx.fillStyle = '#999';
-  ctx.fillRect(x - 10, y + 16, 20, 8);
-  ctx.fillStyle = '#e0e0e0';
-  ctx.fillRect(x - 12, y - 10, 24, 28);
-  ctx.fillStyle = '#a0d0f0';
-  ctx.fillRect(x - 8, y - 28, 16, 20);
-  ctx.fillStyle = '#c0e0f8';
-  ctx.fillRect(x - 6, y - 26, 12, 16);
-  ctx.fillStyle = '#c44040';
-  ctx.fillRect(x - 10, y - 2, 8, 5);
-  ctx.fillStyle = '#4a6fa5';
-  ctx.fillRect(x + 2, y - 2, 8, 5);
-  ctx.fillStyle = '#f5f5f0';
-  ctx.fillRect(x - 4, y + 6, 8, 8);
+  // Water cooler / vending machine (1×2 tiles from rows 10-11, col 14)
+  if (!ts(ctx, 448, 320, 32, 64, x - 16, y - 24, 32, 56)) {
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fillRect(x - 12, y - 10, 24, 28);
+    ctx.fillStyle = '#a0d0f0';
+    ctx.fillRect(x - 8, y - 28, 16, 20);
+  }
 }
 
-// ─── Meeting Room ───
+// ─── Meeting Room (tileset) ───
 
 function drawMeetingTable(ctx, x, y) {
-  ctx.fillStyle = '#00000010';
-  ctx.beginPath();
-  ctx.ellipse(x + 3, y + 28, 64, 30, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#a07850';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 24, 62, 28, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#c49a6c';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 22, 60, 26, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#b08860';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 22, 32, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Large meeting table — compose from desk surface tiles (4×2)
+  // Use the large desk/counter from rows 0-1, cols 8-11
+  ts(ctx, 256, 0, 128, 32, x - 64, y - 10, 128, 32);
+  ts(ctx, 256, 32, 128, 32, x - 64, y + 16, 128, 24);
 }
 
 function drawMeetingChair(ctx, x, y) {
-  ctx.fillStyle = '#00000010';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 10, 12, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#5a4a3a';
-  ctx.fillRect(x - 10, y - 2, 20, 14);
-  ctx.fillStyle = '#7a5a4a';
-  ctx.fillRect(x - 8, y, 16, 10);
-  ctx.fillStyle = '#5a4a3a';
-  ctx.fillRect(x - 10, y - 12, 20, 12);
-  ctx.fillStyle = '#6a5a4a';
-  ctx.fillRect(x - 8, y - 10, 16, 8);
-  ctx.fillStyle = '#444';
-  ctx.fillRect(x - 8, y + 10, 3, 5);
-  ctx.fillRect(x + 5, y + 10, 3, 5);
+  // Red upholstered chair (row 10, col 0)
+  if (!ts(ctx, 0, 320, 32, 32, x - 14, y - 12, 28, 28)) {
+    ctx.fillStyle = '#7a5a4a';
+    ctx.fillRect(x - 10, y - 2, 20, 14);
+  }
 }
 
 function drawWhiteboard(ctx, x, y) {
-  ctx.fillStyle = '#888';
-  ctx.fillRect(x - 4, y, 48, 64);
-  ctx.fillStyle = '#f0f0ee';
-  ctx.fillRect(x, y + 4, 40, 56);
-  ctx.fillStyle = '#3b82f6';
-  ctx.fillRect(x + 6, y + 12, 24, 3);
-  ctx.fillStyle = '#ef4444';
-  ctx.fillRect(x + 6, y + 20, 18, 3);
-  ctx.fillStyle = '#22c55e';
-  ctx.fillRect(x + 6, y + 28, 28, 3);
-  ctx.fillStyle = '#f59e0b';
-  ctx.fillRect(x + 6, y + 36, 14, 3);
-  ctx.fillStyle = '#666';
-  ctx.fillRect(x + 2, y + 54, 36, 5);
-  ctx.fillStyle = '#c44040';
-  ctx.fillRect(x + 6, y + 52, 4, 5);
-  ctx.fillStyle = '#3b82f6';
-  ctx.fillRect(x + 14, y + 52, 4, 5);
-  ctx.fillStyle = '#22c55e';
-  ctx.fillRect(x + 22, y + 52, 4, 5);
+  // Whiteboard with chart (2×1 tiles from row 17, cols 4-5)
+  if (!ts(ctx, 128, 544, 64, 32, x - 4, y, 56, 28)) {
+    ctx.fillStyle = '#f0f0ee';
+    ctx.fillRect(x, y + 4, 40, 56);
+  }
+  // Add a framed picture below (landscape from row 15)
+  ts(ctx, 0, 480, 64, 32, x - 4, y + 30, 56, 28);
 }
 
 function drawMerlion(ctx, x, y) {
-  ctx.fillStyle = '#8b6914';
-  ctx.fillRect(x - 32, y, 64, 76);
-  ctx.fillStyle = '#87ceeb';
-  ctx.fillRect(x - 28, y + 4, 56, 42);
-  ctx.fillStyle = '#4a90d9';
-  ctx.fillRect(x - 28, y + 36, 56, 24);
-  ctx.fillStyle = '#5aa0e9';
-  ctx.fillRect(x - 28, y + 36, 14, 2);
-  ctx.fillRect(x - 6, y + 38, 14, 2);
-  ctx.fillRect(x + 14, y + 40, 14, 2);
-  ctx.fillStyle = '#f0f0f0';
-  ctx.fillRect(x - 6, y + 26, 16, 24);
-  ctx.fillStyle = '#e0e0e0';
-  ctx.fillRect(x - 12, y + 36, 8, 14);
-  ctx.fillRect(x - 16, y + 40, 6, 10);
-  ctx.fillStyle = '#f0f0f0';
-  ctx.fillRect(x - 10, y + 14, 24, 14);
-  ctx.fillStyle = '#ddd';
-  ctx.fillRect(x - 14, y + 12, 6, 14);
-  ctx.fillRect(x + 12, y + 12, 6, 14);
-  ctx.fillRect(x - 12, y + 10, 28, 4);
-  ctx.fillStyle = '#333';
-  ctx.fillRect(x + 4, y + 18, 3, 3);
-  ctx.fillStyle = '#c8a080';
-  ctx.fillRect(x + 8, y + 22, 4, 3);
-  ctx.fillStyle = '#6ab4f0';
-  ctx.fillRect(x + 12, y + 18, 14, 3);
-  ctx.fillRect(x + 18, y + 21, 10, 3);
-  ctx.fillRect(x + 16, y + 24, 8, 4);
-  ctx.fillStyle = '#8ac4f8';
-  ctx.fillRect(x + 14, y + 16, 4, 2);
-  ctx.fillRect(x + 20, y + 28, 6, 6);
-  ctx.fillStyle = '#a0d4ff';
-  ctx.fillRect(x + 22, y + 20, 2, 2);
-  ctx.fillRect(x + 26, y + 24, 2, 2);
+  // Framed landscape painting from tileset (row 15, cols 2-3)
+  ts(ctx, 64, 480, 64, 32, x - 28, y + 4, 56, 28);
+  // Label
   ctx.fillStyle = '#f5f0e0';
-  ctx.fillRect(x - 28, y + 58, 56, 14);
+  ctx.fillRect(x - 28, y + 34, 56, 14);
   ctx.fillStyle = '#666';
   ctx.font = 'bold 8px "Courier New"';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText('MERLION', x, y + 61);
+  ctx.fillText('MERLION', x, y + 36);
 }
 
 function drawMBS(ctx, x, y) {
-  ctx.fillStyle = '#8b6914';
-  ctx.fillRect(x - 34, y, 68, 76);
-  ctx.fillStyle = '#ff9966';
-  ctx.fillRect(x - 30, y + 4, 60, 16);
-  ctx.fillStyle = '#ffcc88';
-  ctx.fillRect(x - 30, y + 4, 60, 8);
-  ctx.fillStyle = '#4a6fa5';
-  ctx.fillRect(x - 30, y + 32, 60, 28);
-  ctx.fillStyle = '#5a7fb5';
-  ctx.fillRect(x - 20, y + 38, 12, 2);
-  ctx.fillRect(x + 6, y + 42, 16, 2);
-  ctx.fillStyle = '#d0c8b8';
-  ctx.fillRect(x - 22, y + 18, 14, 34);
-  ctx.fillRect(x - 5, y + 14, 14, 38);
-  ctx.fillRect(x + 12, y + 18, 14, 34);
-  ctx.fillStyle = '#e8e0d0';
-  for (let i = 0; i < 4; i++) {
-    ctx.fillRect(x - 20, y + 22 + i * 8, 10, 4);
-    ctx.fillRect(x - 3, y + 18 + i * 8, 10, 4);
-    ctx.fillRect(x + 14, y + 22 + i * 8, 10, 4);
-  }
-  ctx.fillStyle = '#b8b0a0';
-  ctx.fillRect(x - 22, y + 50, 14, 2);
-  ctx.fillRect(x - 5, y + 50, 14, 2);
-  ctx.fillRect(x + 12, y + 50, 14, 2);
-  ctx.fillStyle = '#d4c4a8';
-  ctx.fillRect(x - 24, y + 12, 52, 6);
-  ctx.fillStyle = '#c4b498';
-  ctx.fillRect(x - 28, y + 16, 60, 3);
-  ctx.fillStyle = '#d4c4a8';
-  ctx.fillRect(x - 28, y + 14, 6, 4);
-  ctx.fillRect(x + 26, y + 14, 6, 4);
-  ctx.fillStyle = '#6ab4f0';
-  ctx.fillRect(x - 20, y + 12, 44, 2);
+  // Framed sunset painting from tileset (row 15, cols 4-5)
+  ts(ctx, 128, 480, 64, 32, x - 30, y + 4, 60, 30);
+  // Label
   ctx.fillStyle = '#f5f0e0';
-  ctx.fillRect(x - 30, y + 58, 60, 14);
+  ctx.fillRect(x - 30, y + 36, 60, 14);
   ctx.fillStyle = '#666';
   ctx.font = 'bold 7px "Courier New"';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText('MARINA BAY SANDS', x, y + 61);
+  ctx.fillText('MARINA BAY SANDS', x, y + 38);
 }
 
-// ─── Break Room ───
+// ─── Break Room (tileset) ───
 
 function drawMahjongTable(ctx, x, y) {
-  ctx.fillStyle = '#4a2a10';
-  ctx.fillRect(x - 32, y + 30, 8, 10);
-  ctx.fillRect(x + 24, y + 30, 8, 10);
-  ctx.fillStyle = '#5c3a20';
-  ctx.fillRect(x - 32, y - 30, 64, 64);
+  // Use desk surface tiles for the table top
+  ts(ctx, 0, 0, 64, 32, x - 32, y - 16, 64, 32);
+  ts(ctx, 0, 32, 64, 32, x - 32, y + 10, 64, 24);
+  // Mahjong tiles on table (green felt center)
   ctx.fillStyle = '#2d7a3e';
-  ctx.fillRect(x - 28, y - 26, 56, 56);
+  ctx.fillRect(x - 20, y - 8, 40, 22);
+  // Tile pieces
   ctx.fillStyle = '#f5f0e0';
-  for (let i = 0; i < 5; i++) {
-    ctx.fillRect(x - 22 + i * 10, y - 24, 7, 5);
-    ctx.fillRect(x - 22 + i * 10, y + 22, 7, 5);
+  for (let i = 0; i < 4; i++) {
+    ctx.fillRect(x - 16 + i * 9, y - 4, 6, 4);
+    ctx.fillRect(x - 16 + i * 9, y + 8, 6, 4);
   }
-  for (let i = 0; i < 3; i++) {
-    ctx.fillRect(x - 26, y - 14 + i * 14, 5, 9);
-    ctx.fillRect(x + 22, y - 14 + i * 14, 5, 9);
-  }
-  ctx.fillStyle = '#c44040';
-  ctx.fillRect(x - 20, y - 22, 3, 2);
-  ctx.fillRect(x + 10, y + 24, 3, 2);
-  ctx.fillStyle = '#2d5a8e';
-  ctx.fillRect(x - 2, y - 22, 3, 2);
-  ctx.fillRect(x + 20, y + 24, 3, 2);
 }
 
 function drawKopiStation(ctx, x, y) {
-  ctx.fillStyle = '#b8956a';
-  ctx.fillRect(x - 34, y, 68, 22);
-  ctx.fillStyle = '#d4a86a';
-  ctx.fillRect(x - 34, y, 68, 4);
-  ctx.fillStyle = '#9a7a52';
-  ctx.fillRect(x - 34, y + 20, 68, 3);
-  ctx.fillStyle = '#1a6630';
-  ctx.fillRect(x - 28, y - 24, 16, 26);
-  ctx.fillStyle = '#ffd700';
-  ctx.fillRect(x - 26, y - 16, 12, 8);
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(x - 24, y - 14, 8, 3);
-  ctx.fillStyle = '#ddd';
-  ctx.fillRect(x - 4, y - 26, 20, 28);
-  ctx.fillStyle = '#ccc';
-  ctx.fillRect(x - 2, y - 24, 16, 16);
-  ctx.fillStyle = '#c44040';
-  ctx.fillRect(x, y - 6, 5, 5);
-  ctx.fillStyle = '#4a6fa5';
-  ctx.fillRect(x + 8, y - 6, 5, 5);
+  // Counter surface (from tileset rows 0-1, long desk)
+  ts(ctx, 256, 0, 96, 32, x - 34, y - 4, 68, 24);
+  // Vending machine behind counter
+  ts(ctx, 448, 320, 32, 64, x - 20, y - 48, 28, 48);
+  // Coffee cup
   ctx.fillStyle = '#f5f5f0';
-  ctx.fillRect(x + 22, y + 2, 10, 12);
+  ctx.fillRect(x + 18, y + 2, 10, 12);
   ctx.fillStyle = '#92400e';
-  ctx.fillRect(x + 23, y + 3, 8, 8);
-  const steamPhase = Math.floor(Date.now() / 500) % 3;
-  ctx.fillStyle = '#ffffff60';
-  ctx.fillRect(x + 24 + steamPhase, y - 2, 2, 3);
-  ctx.fillRect(x + 26 - steamPhase, y - 4, 2, 2);
-  ctx.fillStyle = '#8b4513';
-  ctx.fillRect(x - 30, y + 4, 10, 8);
-  ctx.fillStyle = '#d4a843';
-  ctx.fillRect(x - 18, y + 4, 10, 8);
+  ctx.fillRect(x + 19, y + 3, 8, 8);
 }
 
 function drawTV(ctx, x, y) {
-  ctx.fillStyle = '#666';
-  ctx.fillRect(x - 2, y, 4, 10);
-  ctx.fillStyle = '#222';
-  ctx.fillRect(x - 32, y + 8, 64, 42);
-  ctx.fillStyle = '#2a4a6a';
-  ctx.fillRect(x - 28, y + 12, 56, 34);
-  ctx.fillStyle = '#3a6a9a';
-  ctx.fillRect(x - 22, y + 16, 24, 14);
-  ctx.fillStyle = '#6a9aca';
-  ctx.fillRect(x + 6, y + 16, 22, 8);
-  ctx.fillStyle = '#5a8aba';
-  ctx.fillRect(x + 6, y + 28, 22, 6);
-  ctx.fillStyle = '#22c55e';
-  ctx.fillRect(x + 24, y + 46, 4, 3);
+  // Computer monitor from tileset (row 14-15 area) — used as TV
+  ts(ctx, 256, 448, 64, 32, x - 32, y, 64, 32);
+  ts(ctx, 256, 480, 64, 32, x - 32, y + 28, 64, 24);
 }
 
 function drawPlayStation(ctx, x, y) {
-  ctx.fillStyle = '#4a3a2a';
-  ctx.fillRect(x - 28, y - 4, 56, 8);
-  ctx.fillStyle = '#5a4a3a';
-  ctx.fillRect(x - 26, y - 2, 52, 4);
-  ctx.fillStyle = '#f0f0f0';
-  ctx.fillRect(x - 14, y, 28, 8);
+  // Small desk/shelf from tileset + computer
+  ts(ctx, 0, 352, 32, 32, x - 14, y - 8, 28, 28);
+  // Console on shelf
   ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(x - 10, y + 1, 20, 6);
+  ctx.fillRect(x - 8, y - 2, 16, 6);
   ctx.fillStyle = '#3b82f6';
-  ctx.fillRect(x - 10, y + 3, 20, 1);
-  ctx.fillStyle = '#2a2a3e';
-  ctx.fillRect(x + 20, y + 1, 12, 6);
-  ctx.fillStyle = '#444';
-  ctx.fillRect(x + 22, y + 2, 3, 3);
-  ctx.fillRect(x + 27, y + 2, 3, 3);
-  ctx.fillStyle = '#3b82f6';
-  ctx.fillRect(x + 23, y, 6, 1);
-  ctx.fillStyle = '#333';
-  ctx.fillRect(x - 1, y - 4, 2, 4);
+  ctx.fillRect(x - 8, y + 1, 16, 1);
 }
 
 function drawSofa(ctx, x, y) {
-  ctx.fillStyle = '#00000008';
-  ctx.fillRect(x + 2, y + 24, 60, 6);
-  ctx.fillStyle = '#4a7a9f';
-  ctx.fillRect(x, y - 4, 60, 12);
-  ctx.fillStyle = '#5b9bc4';
-  ctx.fillRect(x, y + 6, 60, 18);
-  ctx.fillStyle = '#4a8ab4';
-  ctx.fillRect(x + 28, y + 7, 3, 16);
-  ctx.fillStyle = '#4a7a9f';
-  ctx.fillRect(x - 4, y - 2, 6, 26);
-  ctx.fillRect(x + 58, y - 2, 6, 26);
-  ctx.fillStyle = '#6baed6';
-  ctx.fillRect(x + 2, y + 7, 24, 3);
-  ctx.fillRect(x + 33, y + 7, 24, 3);
+  // Sofa from tileset (row 11, cols 3-4)
+  if (!ts(ctx, 96, 352, 64, 32, x - 2, y - 2, 64, 32)) {
+    ctx.fillStyle = '#5b9bc4';
+    ctx.fillRect(x, y + 6, 60, 18);
+  }
 }
 
 function drawFridge(ctx, x, y) {
-  ctx.fillStyle = '#ddd';
-  ctx.fillRect(x - 16, y - 36, 32, 58);
-  ctx.fillStyle = '#e8e8e8';
-  ctx.fillRect(x - 14, y - 34, 28, 24);
-  ctx.fillRect(x - 14, y - 4, 28, 20);
-  ctx.fillStyle = '#aaa';
-  ctx.fillRect(x + 10, y - 30, 4, 18);
-  ctx.fillRect(x + 10, y, 4, 14);
-  ctx.fillStyle = '#ccc';
-  ctx.fillRect(x - 14, y - 6, 28, 3);
-  ctx.fillStyle = '#c44040';
-  ctx.fillRect(x - 10, y - 30, 6, 6);
-  ctx.fillStyle = '#4a7fd4';
-  ctx.fillRect(x - 2, y - 26, 6, 6);
-  ctx.fillStyle = '#fbbf24';
-  ctx.fillRect(x - 8, y - 20, 6, 6);
+  // Tall locker/fridge from tileset (row 11, col 1)
+  if (!ts(ctx, 32, 352, 32, 32, x - 16, y - 16, 32, 32)) {
+    ctx.fillStyle = '#ddd';
+    ctx.fillRect(x - 16, y - 36, 32, 58);
+  }
+  // Second locker for bottom half
+  ts(ctx, 64, 352, 32, 32, x - 16, y + 12, 32, 24);
 }
 
 function drawChopeTable(ctx, x, y) {
-  ctx.fillStyle = '#00000010';
-  ctx.beginPath();
-  ctx.ellipse(x + 2, y + 12, 28, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#a08060';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 10, 26, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#c49a6c';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 8, 24, 10, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#f5f0e0';
-  ctx.fillRect(x - 7, y + 2, 14, 10);
-  ctx.fillStyle = '#e0d8c8';
-  ctx.fillRect(x - 5, y + 5, 10, 1);
-  ctx.fillRect(x - 5, y + 8, 10, 1);
+  // Small round table from tileset (row 11, col 0)
+  if (!ts(ctx, 0, 352, 32, 32, x - 14, y - 8, 28, 28)) {
+    ctx.fillStyle = '#c49a6c';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 8, 24, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // CHOPED sign
   ctx.fillStyle = '#c44040';
   ctx.font = 'bold 8px "Courier New"';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillText('CHOPED!', x, y - 4);
+  ctx.fillText('CHOPED!', x, y - 10);
 }
 
-// ─── Washroom ───
+// ─── Washroom (tileset) ───
 
 function drawToiletCubicle(ctx, x, y) {
-  ctx.fillStyle = '#c8c0b0';
-  ctx.fillRect(x - 28, y - 12, 56, 72);
+  // Cubicle walls
   ctx.fillStyle = '#e0ddd6';
-  ctx.fillRect(x - 24, y - 8, 48, 64);
-  ctx.fillStyle = '#b0a890';
-  ctx.fillRect(x - 16, y + 38, 32, 18);
-  ctx.fillStyle = '#888';
-  ctx.fillRect(x + 10, y + 44, 5, 5);
-  ctx.fillStyle = '#f5f5f0';
-  ctx.fillRect(x - 10, y, 20, 26);
-  ctx.fillStyle = '#e8e8e0';
-  ctx.fillRect(x - 8, y + 2, 16, 16);
-  ctx.fillStyle = '#d0e8f0';
-  ctx.fillRect(x - 6, y + 4, 12, 10);
-  ctx.fillStyle = '#e8e8e0';
-  ctx.fillRect(x - 12, y - 8, 24, 10);
+  ctx.fillRect(x - 26, y - 8, 52, 60);
+  ctx.strokeStyle = '#c8c0b0';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x - 26, y - 8, 52, 60);
+  // Toilet from tileset (row 10, cols 4-5)
+  ts(ctx, 128, 320, 32, 32, x - 14, y, 28, 28);
 }
 
 function drawSink(ctx, x, y) {
-  ctx.fillStyle = '#aaa';
-  ctx.fillRect(x - 14, y - 36, 28, 4);
-  ctx.fillStyle = '#c8d8e8';
-  ctx.fillRect(x - 12, y - 32, 24, 26);
-  ctx.fillStyle = '#d8e8f0';
-  ctx.fillRect(x - 10, y - 30, 8, 22);
+  // Use a tileset piece for mirror above sink
+  ts(ctx, 32, 448, 32, 32, x - 14, y - 32, 28, 28);
+  // Sink basin
   ctx.fillStyle = '#e8e8e0';
-  ctx.fillRect(x - 16, y - 2, 32, 18);
+  ctx.fillRect(x - 14, y - 2, 28, 18);
   ctx.fillStyle = '#d0e0f0';
-  ctx.fillRect(x - 12, y + 2, 24, 10);
+  ctx.fillRect(x - 10, y + 2, 20, 10);
   ctx.fillStyle = '#999';
-  ctx.fillRect(x - 2, y - 6, 6, 8);
-  ctx.fillRect(x - 4, y - 8, 10, 4);
+  ctx.fillRect(x - 2, y - 6, 4, 6);
 }
 
 function drawRestroomSign(ctx, x, y) {
-  ctx.fillStyle = '#4a6fa5';
-  ctx.fillRect(x - 22, y, 44, 24);
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 12px "Courier New"';
+  // Clock from tileset as a wall decoration
+  ts(ctx, 0, 448, 32, 32, x - 16, y - 4, 32, 32);
+  // WC label below
+  ctx.fillStyle = '#aa4b6b';
+  ctx.font = 'bold 10px "Courier New"';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('WC', x, y + 12);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(x - 20, y + 2, 40, 20);
+  ctx.textBaseline = 'top';
+  ctx.fillText('WC', x, y + 28);
 }
 
 // ═══════════════════════════════════════════════════════════

@@ -8,6 +8,8 @@
     "icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
+    "@pixi/tilemap": "^5.0.2",
+    "pixi.js": "^8.17.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ws": "^8.19.0"

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { STATE_COLORS } from '../lib/constants.js';
 import { useSelectedAgent, useActions, useStore } from '../lib/store.jsx';
-import { drawAgentPreview } from '../lib/sprite-renderer.js';
+import { drawCharacterPortrait, getCharacterKey } from '../pixi/utils/characters.js';
 
 const ROLE_AVATARS = {
   Planner: '📋', Developer: '👨‍💻', Reviewer: '🔍', Designer: '🎨',
@@ -82,17 +82,20 @@ export default function AgentSkillSheet() {
   const panelRef = useRef(null);
   const previewCanvasRef = useRef(null);
 
-  // Draw pixel art preview of agent
+  // Draw matching portrait from the same Metro City sheet used on the map
   useEffect(() => {
     if (!agent || !previewCanvasRef.current) return;
+
     const canvas = previewCanvasRef.current;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = 80 * dpr;
     canvas.height = 90 * dpr;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, 80, 90);
-    drawAgentPreview(ctx, agent.id, agent.state, 40, 65);
+    canvas.style.width = '80px';
+    canvas.style.height = '90px';
+
+    drawCharacterPortrait(canvas, getCharacterKey(agent), { scale: 2 * dpr, offsetY: 6 * dpr }).catch((error) => {
+      console.error('Failed to draw character portrait', error);
+    });
   }, [agent]);
 
   // Close on click outside

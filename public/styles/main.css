@@ -40,19 +40,20 @@ body.dashboard-fullpage { min-height: 100vh; }
   flex-shrink: 0;
   min-height: 200px;
   position: relative;
-  background: #c8b89a;
-  border: 1px solid #d4c4a8;
+  background: transparent;
+  border: none;
   overflow-y: auto;
   overflow-x: hidden;
+  max-height: 68vh;
 }
 .sidepanel .workspace-container {
-  min-height: 400px;
-  border-left: none;
-  border-right: none;
+  min-height: 420px;
+  max-height: 60vh;
 }
 .dashboard .workspace-container {
   border-radius: 10px;
-  min-height: 400px;
+  min-height: 480px;
+  max-height: 74vh;
   flex: 1;
 }
 .workspace-canvas {
@@ -773,4 +774,18 @@ body.dashboard-fullpage { min-height: 100vh; }
   image-rendering: pixelated;
   width: 80px;
   height: 80px;
+}
+
+.workspace-error {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 2;
+  padding: 10px 12px;
+  border: 1px solid #7f1d1d;
+  background: rgba(69, 10, 10, 0.92);
+  color: #fecaca;
+  font-size: 0.8rem;
+  border-radius: 8px;
 }
