@@ -5,6 +5,8 @@ import { useStore, useActions } from '../lib/store.jsx';
 import { MovementController } from '../lib/movement.js';
 import { MAP_W, MAP_H } from '../lib/office-map.js';
 import { createOfficeScene } from '../pixi/scene/officeScene.js';
+import { hitTestFurniture } from '../lib/tile-map.js';
+import FurniturePanel from './FurniturePanel.jsx';
 
 export default function PixiOfficeMap() {
   const containerRef = useRef(null);
@@ -13,9 +15,11 @@ export default function PixiOfficeMap() {
   const sceneRef = useRef(null);
   const cleanupRef = useRef(() => {});
   const [hoveredAgent, setHoveredAgent] = useState(null);
+  const hoveredFurnitureRef = useRef(null);
+  const [activePanel, setActivePanel] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [debugCoords, setDebugCoords] = useState(null);
-  const DEBUG_COORDS = true; // Set to false to disable coordinate overlay
+  const DEBUG_COORDS = false;
   const { agents, selectedAgentId } = useStore();
   const { selectAgent, deselectAgent } = useActions();
   const agentsRef = useRef(agents);
@@ -44,24 +48,48 @@ export default function PixiOfficeMap() {
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;
     const mapCoords = scene.screenToWorld(localX, localY);
-    const hitId = controller.hitTest(mapCoords.x, mapCoords.y);
 
     if (mode === 'hover') {
       if (DEBUG_COORDS) {
         setDebugCoords({ x: Math.round(mapCoords.x), y: Math.round(mapCoords.y), screenX: localX, screenY: localY });
       }
+
+      // Check furniture hover
+      const furnitureHit = hitTestFurniture(mapCoords.x, mapCoords.y);
+      const furnitureId = furnitureHit ? furnitureHit.id : null;
+      if (furnitureId !== hoveredFurnitureRef.current) {
+        hoveredFurnitureRef.current = furnitureId;
+        scene.highlightFurniture(furnitureId);
+      }
+
+      // Check agent hover
+      const hitId = controller.hitTest(mapCoords.x, mapCoords.y);
       if (hitId !== hoveredRef.current) {
         setHoveredAgent(hitId);
-        app.canvas.style.cursor = hitId ? 'pointer' : 'default';
       }
+
+      app.canvas.style.cursor = (furnitureHit || hitId) ? 'pointer' : 'default';
       return;
     }
 
+    // Click mode
+    const hitId = controller.hitTest(mapCoords.x, mapCoords.y);
     if (hitId) {
       selectAgent(hitId);
-    } else {
-      deselectAgent();
+      setActivePanel(null);
+      return;
     }
+
+    // Check furniture click
+    const furnitureHit = hitTestFurniture(mapCoords.x, mapCoords.y);
+    if (furnitureHit) {
+      setActivePanel(furnitureHit);
+      deselectAgent();
+      return;
+    }
+
+    deselectAgent();
+    setActivePanel(null);
   }, [deselectAgent, selectAgent]);
 
   useEffect(() => {
@@ -117,6 +145,8 @@ export default function PixiOfficeMap() {
         const onMove = (event) => handlePointer(event.clientX, event.clientY, 'hover');
         const onLeave = () => {
           setHoveredAgent(null);
+          hoveredFurnitureRef.current = null;
+          if (sceneRef.current) sceneRef.current.highlightFurniture(null);
           app.canvas.style.cursor = 'default';
         };
 
@@ -181,6 +211,15 @@ export default function PixiOfficeMap() {
         }}>
           {debugCoords.x}, {debugCoords.y}
         </div>
+      )}
+      {activePanel && (
+        <FurniturePanel
+          action={activePanel.action}
+          label={activePanel.label}
+          icon={activePanel.icon}
+          agents={agents}
+          onClose={() => setActivePanel(null)}
+        />
       )}
     </div>
   );

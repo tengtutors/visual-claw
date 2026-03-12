@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const {PNG} = require\\(''pngjs''\\); const fs = require\\(''fs''\\); const data = fs.readFileSync\\(''public/assets/office/tilesets/Office Tileset All 32x32 no shadow.png''\\); const png = PNG.sync.read\\(data\\); console.log\\(''Tileset:'', png.width, ''x'', png.height\\); const room = PNG.sync.read\\(fs.readFileSync\\(''public/assets/office/rooms/Office Level 2.png''\\)\\); console.log\\(''Room:'', room.width, ''x'', room.height\\);\")",
+      "Bash(npm run:*)",
+      "Bash(node -e \":*)",
+      "Bash(open \"/Users/teng/visual claw/tools/furniture-editor.html\")",
+      "Bash(gh repo:*)",
+      "Bash(node /tmp/gen_promos.js)",
+      "Bash(NODE_PATH=./node_modules node /tmp/gen_promos.js)",
+      "Bash(cp /tmp/icon128_final.png public/icons/icon128.png)",
+      "Bash(cp /tmp/icon48_final.png public/icons/icon48.png)",
+      "Bash(cp /tmp/icon16_final.png public/icons/icon16.png)",
+      "Bash(cp /tmp/marquee_1400x560.png chrome-store-assets/marquee-1400x560.png)",
+      "Bash(cp /tmp/small_promo_440x280.png chrome-store-assets/small-promo-440x280.png)",
+      "Bash(cp /tmp/icon128_final.png chrome-store-assets/icon-128.png)"
+    ]
+  }
+}

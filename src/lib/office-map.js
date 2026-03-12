@@ -8,10 +8,6 @@ const WALKABLE_AREAS = [
   { x: 178, y: 246, w: 620, h: 550 },
 ];
 
-// Collision rects are now derived from furniture objects in tile-map.js
-// Each furniture object defines its own collision bounds.
-const COLLISION_RECTS = getFurnitureCollisions();
-
 const SPOT_OFFSETS = [
   { x: 0, y: 0 },
   { x: -18, y: 10 },
@@ -53,7 +49,7 @@ export const OFFICE_LAYOUT = {
     },
   ],
   props: [],
-  collisions: COLLISION_RECTS,
+  collisions: [],
 };
 
 export const FURNITURE = OFFICE_LAYOUT.props;
@@ -74,7 +70,7 @@ export function getWalkableBounds() {
 }
 
 export function getCollisionRects() {
-  return OFFICE_LAYOUT.collisions;
+  return getFurnitureCollisions();
 }
 
 function isInsideRect(x, y, rect, padding = 0) {

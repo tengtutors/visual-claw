@@ -16,7 +16,8 @@ import { createCharacterLibrary, getCharacterKey } from '../utils/characters.js'
 import {
   TILE, TILE_SCALE, SRC, TILESET_PATH,
   ROOM_COLS, ROOM_ROWS, ROOM_ORIGIN_X, ROOM_ORIGIN_Y,
-  buildFloorGrid, FURNITURE_OBJECTS, SCALED_TILE,
+  buildFloorGrid, ensureOfficeLayoutLoaded, getFurnitureObjects, getInteractiveFurniture, SCALED_TILE,
+  hitTestFurniture,
 } from '../../lib/tile-map.js';
 
 const AGENT_WORLD_SCALE = 3.1;
@@ -67,6 +68,7 @@ function getFrameIndex(sprite) {
 }
 
 export async function createOfficeScene(app) {
+  await ensureOfficeLayoutLoaded();
   const characterLibrary = new Map();
 
   const stage = app.stage;
@@ -81,6 +83,9 @@ export async function createOfficeScene(app) {
   worldLayer.sortableChildren = true;
   root.addChild(backgroundLayer, worldLayer, overlayLayer);
   stage.addChild(root);
+
+  const furnitureSpriteMap = new Map();
+  let highlightedFurnitureId = null;
 
   if (USE_TILE_RENDERER) {
     // --- Tile-based rendering ---
@@ -112,7 +117,9 @@ export async function createOfficeScene(app) {
     }
 
     // Render furniture as individual sprites in worldLayer (Y-sorted)
-    for (const furniture of FURNITURE_OBJECTS) {
+    const furnitureObjects = getFurnitureObjects();
+    const interactiveFurniture = getInteractiveFurniture();
+    for (const furniture of furnitureObjects) {
       const furnitureTexture = new Texture({
         source: tilesetTexture.source,
         frame: new Rectangle(furniture.src.x, furniture.src.y, furniture.src.w, furniture.src.h),
@@ -120,12 +127,17 @@ export async function createOfficeScene(app) {
       applyNearestScale(furnitureTexture);
 
       const furnitureSprite = new Sprite(furnitureTexture);
-      furnitureSprite.x = furniture.x;
+      furnitureSprite.x = furniture.flipped ? furniture.x + furniture.src.w * TILE_SCALE : furniture.x;
       furnitureSprite.y = furniture.y;
-      furnitureSprite.scale.set(TILE_SCALE);
+      furnitureSprite.scale.set(furniture.flipped ? -TILE_SCALE : TILE_SCALE, TILE_SCALE);
       furnitureSprite.roundPixels = true;
       furnitureSprite.zIndex = furniture.zAnchor;
       worldLayer.addChild(furnitureSprite);
+
+      // Track interactive furniture sprites for highlight
+      if (interactiveFurniture[furniture.id]) {
+        furnitureSpriteMap.set(furniture.id, furnitureSprite);
+      }
     }
   } else {
     // --- Legacy single-image rendering ---
@@ -230,10 +242,22 @@ export async function createOfficeScene(app) {
     };
   }
 
+  function highlightFurniture(furnitureId) {
+    // Reset previous highlight
+    if (highlightedFurnitureId && furnitureSpriteMap.has(highlightedFurnitureId)) {
+      furnitureSpriteMap.get(highlightedFurnitureId).tint = 0xffffff;
+    }
+    highlightedFurnitureId = furnitureId;
+    // Apply new highlight
+    if (furnitureId && furnitureSpriteMap.has(furnitureId)) {
+      furnitureSpriteMap.get(furnitureId).tint = 0xaaffaa;
+    }
+  }
+
   function destroy() {
     stage.removeChild(root);
     root.destroy({ children: true });
   }
 
-  return { resize, render, screenToWorld, destroy };
+  return { resize, render, screenToWorld, hitTestFurniture, highlightFurniture, destroy };
 }

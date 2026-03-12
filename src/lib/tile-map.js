@@ -15,6 +15,7 @@ export const TILESET_PATH = 'assets/office/tilesets/Office Tileset All 32x32 no 
 // Room grid dimensions (in tiles)
 export const ROOM_COLS = 12;
 export const ROOM_ROWS = 13;
+const OFFICE_LAYOUT_URL = 'http://127.0.0.1:18790/office-layout';
 
 // Where the tile grid starts in world coordinates (matches original room placement)
 export const ROOM_ORIGIN_X = 115;
@@ -322,6 +323,118 @@ export const FURNITURE_OBJECTS = [
 ];
 
 // ---------------------------------------------------------------------------
+// Interactive furniture — maps furniture IDs to clickable actions
+// ---------------------------------------------------------------------------
+const INTERACTIVE_ACTIONS = {
+  create_agent: { action: 'create_agent', label: 'Create Agent', icon: '💻' },
+  gateway_token: { action: 'gateway_token', label: 'Gateway Setup', icon: '🚪' },
+  cron_tasks: { action: 'cron_tasks', label: 'Scheduled Tasks', icon: '⏰' },
+  workspace_config: { action: 'workspace_config', label: 'Workspace Settings', icon: '⚙️' },
+  event_log: { action: 'event_log', label: 'Event Log', icon: '📋' },
+};
+
+const DEFAULT_INTERACTIVE_BY_ID = {
+  computer_topleft: 'create_agent',
+  rug: 'gateway_token',
+  cooler_left: 'cron_tasks',
+  vending_machine: 'workspace_config',
+  bookshelf_right: 'event_log',
+};
+
+let runtimeFurnitureObjects = FURNITURE_OBJECTS;
+let layoutLoadPromise = null;
+
+function createFurnitureObject(item) {
+  const width = item.src.w * TILE_SCALE;
+  const height = item.src.h * TILE_SCALE;
+  const hasCollision = item.hasCollision !== false;
+  const cat = (item.cat || item.id || '').toLowerCase();
+  let zAnchor = item.zAnchor;
+
+  if (!Number.isFinite(zAnchor)) {
+    if (hasCollision) {
+      zAnchor = item.y + height;
+    } else if (
+      cat.includes('rug')
+      || cat.includes('window')
+      || cat.includes('whiteboard')
+      || cat.includes('blackboard')
+      || cat.includes('painting')
+    ) {
+      zAnchor = item.y;
+    } else {
+      zAnchor = 900;
+    }
+  }
+
+  return {
+    id: item.id,
+    cat: item.cat || item.id,
+    src: { ...item.src },
+    x: item.x,
+    y: item.y,
+    flipped: Boolean(item.flipped),
+    interactive: item.interactive || DEFAULT_INTERACTIVE_BY_ID[item.id] || null,
+    collision: hasCollision ? { x: item.x, y: item.y, w: width, h: height } : null,
+    zAnchor,
+  };
+}
+
+export async function ensureOfficeLayoutLoaded(force = false) {
+  if (!force && layoutLoadPromise) return layoutLoadPromise;
+
+  layoutLoadPromise = fetch(OFFICE_LAYOUT_URL, { cache: 'no-store' })
+    .then((res) => {
+      if (!res.ok) throw new Error(`Layout request failed: ${res.status}`);
+      return res.json();
+    })
+    .then((layout) => {
+      if (!Array.isArray(layout)) throw new Error('Layout payload must be an array');
+      runtimeFurnitureObjects = layout.map((item) => createFurnitureObject(item));
+      return runtimeFurnitureObjects;
+    })
+    .catch(() => {
+      runtimeFurnitureObjects = FURNITURE_OBJECTS;
+      return runtimeFurnitureObjects;
+    });
+
+  return layoutLoadPromise;
+}
+
+export function getFurnitureObjects() {
+  return runtimeFurnitureObjects;
+}
+
+export function getInteractiveFurniture() {
+  const byId = {};
+  for (const furniture of runtimeFurnitureObjects) {
+    const actionKey = furniture.interactive || DEFAULT_INTERACTIVE_BY_ID[furniture.id];
+    if (!actionKey) continue;
+    if (!INTERACTIVE_ACTIONS[actionKey]) continue;
+    byId[furniture.id] = INTERACTIVE_ACTIONS[actionKey];
+  }
+  return byId;
+}
+
+export const INTERACTIVE_FURNITURE = getInteractiveFurniture;
+
+// ---------------------------------------------------------------------------
+// Helper: hit-test furniture by world coordinates
+// ---------------------------------------------------------------------------
+export function hitTestFurniture(worldX, worldY) {
+  const interactiveFurniture = getInteractiveFurniture();
+  for (const f of runtimeFurnitureObjects) {
+    if (!interactiveFurniture[f.id]) continue;
+    const fw = f.src.w * TILE_SCALE;
+    const fh = f.src.h * TILE_SCALE;
+    if (worldX >= f.x && worldX <= f.x + fw && worldY >= f.y && worldY <= f.y + fh) {
+      return { id: f.id, ...interactiveFurniture[f.id], furniture: f };
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Helper: convert tile grid coords to world coords
 // ---------------------------------------------------------------------------
 export function tileToWorld(col, row) {
@@ -335,7 +448,7 @@ export function tileToWorld(col, row) {
 // Derive collision rectangles from furniture objects
 // ---------------------------------------------------------------------------
 export function getFurnitureCollisions() {
-  return FURNITURE_OBJECTS
+  return runtimeFurnitureObjects
     .filter((f) => f.collision != null)
     .map((f) => f.collision);
 }

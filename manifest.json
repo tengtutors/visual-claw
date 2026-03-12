@@ -2,12 +2,15 @@
   "manifest_version": 3,
   "name": "Visual Claw",
   "version": "1.0.0",
-  "description": "Visualize OpenClaw agents in real time \u2014 see who is working, waiting, blocked, or collaborating.",
+  "description": "Visualize your AI agents in real time \u2014 see who is working, waiting, blocked, or collaborating.",
   "permissions": [
     "sidePanel",
     "storage",
     "notifications",
     "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:18790/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js"
