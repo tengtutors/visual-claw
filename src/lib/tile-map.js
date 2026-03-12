@@ -329,20 +329,26 @@ const INTERACTIVE_ACTIONS = {
   create_agent: { action: 'create_agent', label: 'Create Agent', icon: '💻' },
   gateway_token: { action: 'gateway_token', label: 'Gateway Setup', icon: '🚪' },
   cron_tasks: { action: 'cron_tasks', label: 'Scheduled Tasks', icon: '⏰' },
-  workspace_config: { action: 'workspace_config', label: 'Workspace Settings', icon: '⚙️' },
-  event_log: { action: 'event_log', label: 'Event Log', icon: '📋' },
 };
 
 const DEFAULT_INTERACTIVE_BY_ID = {
   computer_topleft: 'create_agent',
   rug: 'gateway_token',
-  cooler_left: 'cron_tasks',
-  vending_machine: 'workspace_config',
-  bookshelf_right: 'event_log',
+  stool_left: 'cron_tasks',
+  stool_right: 'cron_tasks',
 };
 
 let runtimeFurnitureObjects = FURNITURE_OBJECTS;
 let layoutLoadPromise = null;
+const layoutChangeListeners = [];
+
+export function onLayoutChange(fn) {
+  layoutChangeListeners.push(fn);
+}
+
+function notifyLayoutChange() {
+  for (const fn of layoutChangeListeners) fn();
+}
 
 function createFurnitureObject(item) {
   const width = item.src.w * TILE_SCALE;
@@ -375,6 +381,7 @@ function createFurnitureObject(item) {
     y: item.y,
     flipped: Boolean(item.flipped),
     interactive: item.interactive || DEFAULT_INTERACTIVE_BY_ID[item.id] || null,
+    zone: item.zone || null,
     collision: hasCollision ? { x: item.x, y: item.y, w: width, h: height } : null,
     zAnchor,
   };
@@ -391,10 +398,12 @@ export async function ensureOfficeLayoutLoaded(force = false) {
     .then((layout) => {
       if (!Array.isArray(layout)) throw new Error('Layout payload must be an array');
       runtimeFurnitureObjects = layout.map((item) => createFurnitureObject(item));
+      notifyLayoutChange();
       return runtimeFurnitureObjects;
     })
     .catch(() => {
       runtimeFurnitureObjects = FURNITURE_OBJECTS;
+      notifyLayoutChange();
       return runtimeFurnitureObjects;
     });
 

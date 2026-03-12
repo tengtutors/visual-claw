@@ -1,34 +1,482 @@
 [
-  { "id": "shelf_left", "cat": "Tall Shelf A", "src": { "x": 448, "y": 352, "w": 64, "h": 96 }, "x": 183, "y": 382, "hasCollision": true, "flipped": false },
-  { "id": "shelf_left_2", "cat": "Tall Shelf B", "src": { "x": 384, "y": 352, "w": 64, "h": 96 }, "x": 289, "y": 382, "hasCollision": true, "flipped": false },
-  { "id": "bookshelf_right", "cat": "Water Cooler B", "src": { "x": 256, "y": 512, "w": 64, "h": 96 }, "x": 688, "y": 146, "hasCollision": true, "interactive": "event_log", "flipped": false },
-  { "id": "painting_1", "cat": "Window", "src": { "x": 128, "y": 640, "w": 64, "h": 64 }, "x": 183, "y": 136, "hasCollision": false, "flipped": false },
-  { "id": "painting_2", "cat": "Window", "src": { "x": 128, "y": 640, "w": 64, "h": 64 }, "x": 414, "y": 133, "hasCollision": false, "flipped": false },
-  { "id": "painting_3", "cat": "Window", "src": { "x": 128, "y": 640, "w": 64, "h": 64 }, "x": 654, "y": 134, "hasCollision": false, "flipped": false },
-  { "id": "vending_machine", "cat": "Vending Machine", "src": { "x": 448, "y": 512, "w": 64, "h": 96 }, "x": 570, "y": 143, "hasCollision": true, "interactive": "workspace_config", "flipped": false },
-  { "id": "cabinet_tall", "cat": "Fridge", "src": { "x": 384, "y": 512, "w": 32, "h": 96 }, "x": 530, "y": 142, "hasCollision": true, "flipped": false },
-  { "id": "cooler_left", "cat": "Sofa", "src": { "x": 64, "y": 512, "w": 32, "h": 64 }, "x": 551, "y": 284, "hasCollision": true, "interactive": "cron_tasks", "flipped": false },
-  { "id": "cooler_right", "cat": "Sofa", "src": { "x": 64, "y": 512, "w": 32, "h": 64 }, "x": 552, "y": 341, "hasCollision": true, "flipped": false },
-  { "id": "computer_topleft", "cat": "Crates", "src": { "x": 448, "y": 896, "w": 64, "h": 64 }, "x": 169, "y": 172, "hasCollision": true, "interactive": "create_agent", "flipped": false },
-  { "id": "monitor_1", "cat": "Divider", "src": { "x": 448, "y": 448, "w": 32, "h": 64 }, "x": 279, "y": 188, "hasCollision": false, "flipped": false },
-  { "id": "coffee_machine", "cat": "Wooden Table", "src": { "x": 32, "y": 576, "w": 32, "h": 64 }, "x": 363, "y": 234, "hasCollision": true, "flipped": false },
-  { "id": "cup_1", "cat": "Coffee Cup", "src": { "x": 448, "y": 640, "w": 32, "h": 32 }, "x": 360, "y": 270, "hasCollision": false, "flipped": false },
-  { "id": "printer", "cat": "Coffee Table", "src": { "x": 0, "y": 576, "w": 32, "h": 64 }, "x": 648, "y": 313, "hasCollision": true, "flipped": false },
-  { "id": "filing_1", "cat": "Sofa B", "src": { "x": 96, "y": 512, "w": 32, "h": 64 }, "x": 743, "y": 285, "hasCollision": true, "flipped": false },
-  { "id": "filing_2", "cat": "Sofa B", "src": { "x": 96, "y": 512, "w": 32, "h": 64 }, "x": 742, "y": 346, "hasCollision": true, "flipped": false },
-  { "id": "plant_right", "cat": "Plant", "src": { "x": 96, "y": 896, "w": 32, "h": 64 }, "x": 736, "y": 446, "hasCollision": true, "flipped": false },
-  { "id": "plant_left", "cat": "Plant", "src": { "x": 96, "y": 896, "w": 32, "h": 64 }, "x": 175, "y": 482, "hasCollision": true, "flipped": false },
-  { "id": "plant_bottom", "cat": "Plant", "src": { "x": 96, "y": 896, "w": 32, "h": 64 }, "x": 623, "y": 682, "hasCollision": true, "flipped": false },
-  { "id": "boxes_bottom", "cat": "Blackboard", "src": { "x": 0, "y": 832, "w": 64, "h": 64 }, "x": 692, "y": 493, "hasCollision": true, "flipped": false },
-  { "id": "rug", "cat": "Rug", "src": { "x": 128, "y": 992, "w": 64, "h": 32 }, "x": 681, "y": 731, "hasCollision": false, "interactive": "gateway_token", "flipped": false },
-  { "id": "desk_chair_left", "cat": "Metal Table", "src": { "x": 96, "y": 576, "w": 32, "h": 64 }, "x": 498, "y": 667, "hasCollision": false, "flipped": false },
-  { "id": "desk_chair_right", "cat": "Metal Table", "src": { "x": 96, "y": 576, "w": 32, "h": 64 }, "x": 307, "y": 668, "hasCollision": false, "flipped": false },
-  { "id": "stool_left", "cat": "Laptop", "src": { "x": 352, "y": 768, "w": 32, "h": 32 }, "x": 501, "y": 680, "hasCollision": false, "flipped": false },
-  { "id": "stool_right", "cat": "Laptop", "src": { "x": 352, "y": 768, "w": 32, "h": 32 }, "x": 310, "y": 678, "hasCollision": false, "flipped": false },
-  { "id": "desk_left", "cat": "Chair", "src": { "x": 192, "y": 512, "w": 32, "h": 64 }, "x": 242, "y": 694, "hasCollision": true, "flipped": false },
-  { "id": "desk_right", "cat": "Chair", "src": { "x": 192, "y": 512, "w": 32, "h": 64 }, "x": 439, "y": 692, "hasCollision": true, "flipped": false },
-  { "id": "monitor_2", "cat": "Divider", "src": { "x": 448, "y": 448, "w": 32, "h": 64 }, "x": 587, "y": 593, "hasCollision": false, "flipped": false },
-  { "id": "monitor_3", "cat": "Divider", "src": { "x": 448, "y": 448, "w": 32, "h": 64 }, "x": 587, "y": 669, "hasCollision": false, "flipped": false },
-  { "id": "cup_2", "cat": "Coffee Cup", "src": { "x": 448, "y": 640, "w": 32, "h": 32 }, "x": 650, "y": 325, "hasCollision": false, "flipped": false },
-  { "id": "cup_3", "cat": "Coffee Cup", "src": { "x": 448, "y": 640, "w": 32, "h": 32 }, "x": 301, "y": 722, "hasCollision": false, "flipped": false }
+  {
+    "id": "shelf_left",
+    "cat": "Tall Shelf A",
+    "src": {
+      "x": 448,
+      "y": 352,
+      "w": 64,
+      "h": 96
+    },
+    "x": 183,
+    "y": 382,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "shelf_left_2",
+    "cat": "Tall Shelf B",
+    "src": {
+      "x": 384,
+      "y": 352,
+      "w": 64,
+      "h": 96
+    },
+    "x": 289,
+    "y": 382,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "bookshelf_right",
+    "cat": "Water Cooler B",
+    "src": {
+      "x": 256,
+      "y": 512,
+      "w": 64,
+      "h": 96
+    },
+    "x": 688,
+    "y": 146,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "painting_1",
+    "cat": "Window",
+    "src": {
+      "x": 128,
+      "y": 640,
+      "w": 64,
+      "h": 64
+    },
+    "x": 183,
+    "y": 136,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "painting_2",
+    "cat": "Window",
+    "src": {
+      "x": 128,
+      "y": 640,
+      "w": 64,
+      "h": 64
+    },
+    "x": 414,
+    "y": 133,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "painting_3",
+    "cat": "Window",
+    "src": {
+      "x": 128,
+      "y": 640,
+      "w": 64,
+      "h": 64
+    },
+    "x": 654,
+    "y": 134,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "vending_machine",
+    "cat": "Vending Machine",
+    "src": {
+      "x": 448,
+      "y": 512,
+      "w": 64,
+      "h": 96
+    },
+    "x": 570,
+    "y": 143,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "cabinet_tall",
+    "cat": "Fridge",
+    "src": {
+      "x": 384,
+      "y": 512,
+      "w": 32,
+      "h": 96
+    },
+    "x": 530,
+    "y": 142,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "cooler_left",
+    "cat": "Sofa",
+    "src": {
+      "x": 64,
+      "y": 512,
+      "w": 32,
+      "h": 64
+    },
+    "x": 551,
+    "y": 284,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "cooler_right",
+    "cat": "Sofa",
+    "src": {
+      "x": 64,
+      "y": 512,
+      "w": 32,
+      "h": 64
+    },
+    "x": 552,
+    "y": 341,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "computer_topleft",
+    "cat": "Crates",
+    "src": {
+      "x": 448,
+      "y": 896,
+      "w": 64,
+      "h": 64
+    },
+    "x": 169,
+    "y": 172,
+    "hasCollision": true,
+    "interactive": "create_agent",
+    "flipped": false
+  },
+  {
+    "id": "monitor_1",
+    "cat": "Divider",
+    "src": {
+      "x": 448,
+      "y": 448,
+      "w": 32,
+      "h": 64
+    },
+    "x": 279,
+    "y": 188,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "coffee_machine",
+    "cat": "Wooden Table",
+    "src": {
+      "x": 32,
+      "y": 576,
+      "w": 32,
+      "h": 64
+    },
+    "x": 363,
+    "y": 234,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "cup_1",
+    "cat": "Coffee Cup",
+    "src": {
+      "x": 448,
+      "y": 640,
+      "w": 32,
+      "h": 32
+    },
+    "x": 360,
+    "y": 270,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "printer",
+    "cat": "Coffee Table",
+    "src": {
+      "x": 0,
+      "y": 576,
+      "w": 32,
+      "h": 64
+    },
+    "x": 648,
+    "y": 313,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "filing_1",
+    "cat": "Sofa B",
+    "src": {
+      "x": 96,
+      "y": 512,
+      "w": 32,
+      "h": 64
+    },
+    "x": 743,
+    "y": 285,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "filing_2",
+    "cat": "Sofa B",
+    "src": {
+      "x": 96,
+      "y": 512,
+      "w": 32,
+      "h": 64
+    },
+    "x": 742,
+    "y": 346,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "plant_right",
+    "cat": "Plant",
+    "src": {
+      "x": 96,
+      "y": 896,
+      "w": 32,
+      "h": 64
+    },
+    "x": 736,
+    "y": 446,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "plant_left",
+    "cat": "Plant",
+    "src": {
+      "x": 96,
+      "y": 896,
+      "w": 32,
+      "h": 64
+    },
+    "x": 175,
+    "y": 482,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "plant_bottom",
+    "cat": "Plant",
+    "src": {
+      "x": 96,
+      "y": 896,
+      "w": 32,
+      "h": 64
+    },
+    "x": 623,
+    "y": 682,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "boxes_bottom",
+    "cat": "Blackboard",
+    "src": {
+      "x": 0,
+      "y": 832,
+      "w": 64,
+      "h": 64
+    },
+    "x": 692,
+    "y": 493,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "rug",
+    "cat": "Rug",
+    "src": {
+      "x": 128,
+      "y": 992,
+      "w": 64,
+      "h": 32
+    },
+    "x": 681,
+    "y": 731,
+    "hasCollision": false,
+    "interactive": "gateway_token",
+    "flipped": false
+  },
+  {
+    "id": "desk_chair_left",
+    "cat": "Metal Table",
+    "src": {
+      "x": 96,
+      "y": 576,
+      "w": 32,
+      "h": 64
+    },
+    "x": 498,
+    "y": 667,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "desk_chair_right",
+    "cat": "Metal Table",
+    "src": {
+      "x": 96,
+      "y": 576,
+      "w": 32,
+      "h": 64
+    },
+    "x": 307,
+    "y": 668,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "stool_left",
+    "cat": "Laptop",
+    "src": {
+      "x": 352,
+      "y": 768,
+      "w": 32,
+      "h": 32
+    },
+    "x": 501,
+    "y": 680,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "stool_right",
+    "cat": "Laptop",
+    "src": {
+      "x": 352,
+      "y": 768,
+      "w": 32,
+      "h": 32
+    },
+    "x": 310,
+    "y": 678,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "desk_left",
+    "cat": "Chair",
+    "src": {
+      "x": 192,
+      "y": 512,
+      "w": 32,
+      "h": 64
+    },
+    "x": 242,
+    "y": 694,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "desk_right",
+    "cat": "Chair",
+    "src": {
+      "x": 192,
+      "y": 512,
+      "w": 32,
+      "h": 64
+    },
+    "x": 439,
+    "y": 692,
+    "hasCollision": true,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "monitor_2",
+    "cat": "Divider",
+    "src": {
+      "x": 448,
+      "y": 448,
+      "w": 32,
+      "h": 64
+    },
+    "x": 587,
+    "y": 593,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "monitor_3",
+    "cat": "Divider",
+    "src": {
+      "x": 448,
+      "y": 448,
+      "w": 32,
+      "h": 64
+    },
+    "x": 587,
+    "y": 669,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "cup_2",
+    "cat": "Coffee Cup",
+    "src": {
+      "x": 448,
+      "y": 640,
+      "w": 32,
+      "h": 32
+    },
+    "x": 650,
+    "y": 325,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  },
+  {
+    "id": "cup_3",
+    "cat": "Coffee Cup",
+    "src": {
+      "x": 448,
+      "y": 640,
+      "w": 32,
+      "h": 32
+    },
+    "x": 301,
+    "y": 722,
+    "hasCollision": false,
+    "interactive": null,
+    "flipped": false
+  }
 ]

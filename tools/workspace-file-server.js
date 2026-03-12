@@ -19,6 +19,7 @@ const path = require('path');
 const PORT = 18790;
 const OPENCLAW_CONFIG = path.join(require('os').homedir(), '.openclaw', 'openclaw.json');
 const OFFICE_LAYOUT_PATH = path.join(__dirname, '..', 'public', 'data', 'office-layout.json');
+const OPENCLAW_BIN = '/opt/homebrew/bin/openclaw';
 
 function loadConfig() {
   try {
@@ -186,6 +187,258 @@ const server = http.createServer((req, res) => {
         res.writeHead(400);
         res.end(JSON.stringify({ error: err.message }));
       }
+    });
+    return;
+  }
+
+  if (url.pathname === '/create-agent' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { name, model, botToken, task } = JSON.parse(body);
+        if (!name || !name.trim()) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Agent name is required' }));
+          return;
+        }
+
+        const agentId = name.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+        const workspacePath = path.join(require('os').homedir(), '.openclaw', `workspace-${agentId}`);
+        const { execFile } = require('child_process');
+        const steps = [];
+
+        function runStep(cmd, args, label) {
+          return new Promise((resolve, reject) => {
+            execFile(cmd, args, { timeout: 15000 }, (err, stdout, stderr) => {
+              if (err) {
+                reject(new Error(`${label}: ${stderr || err.message}`));
+              } else {
+                steps.push(label);
+                resolve(stdout);
+              }
+            });
+          });
+        }
+
+        (async () => {
+          // Step 1: Create the agent
+          const addArgs = ['agents', 'add', agentId, '--workspace', workspacePath, '--non-interactive'];
+          if (model) addArgs.push('--model', model);
+          await runStep(OPENCLAW_BIN, addArgs, 'Agent created');
+
+          // Step 2: Create workspace files
+          fs.mkdirSync(workspacePath, { recursive: true });
+          if (task) {
+            fs.writeFileSync(path.join(workspacePath, 'AGENTS.md'), `# Task\n\n${task}\n`, 'utf-8');
+          }
+          const identityContent = `# ${name.trim()}\n\nRole: AI Agent\n`;
+          if (!fs.existsSync(path.join(workspacePath, 'IDENTITY.md'))) {
+            fs.writeFileSync(path.join(workspacePath, 'IDENTITY.md'), identityContent, 'utf-8');
+          }
+          steps.push('Workspace initialized');
+
+          // Step 3: Configure Telegram channel + routing binding if bot token provided
+          if (botToken && botToken.trim()) {
+            await runStep(OPENCLAW_BIN, [
+              'channels', 'add',
+              '--channel', 'telegram',
+              '--token', botToken.trim(),
+              '--account', agentId,
+            ], 'Telegram channel configured');
+
+            // Add routing binding so messages go to this agent, not the default
+            const currentConfig = loadConfig();
+            if (currentConfig) {
+              if (!currentConfig.bindings) currentConfig.bindings = [];
+              const exists = currentConfig.bindings.some(
+                b => b.agentId === agentId && b.match?.channel === 'telegram'
+              );
+              if (!exists) {
+                currentConfig.bindings.push({
+                  agentId,
+                  match: { channel: 'telegram', accountId: agentId },
+                });
+                fs.writeFileSync(OPENCLAW_CONFIG, JSON.stringify(currentConfig, null, 2) + '\n', 'utf-8');
+                steps.push('Routing binding added');
+              }
+            }
+          }
+
+          // Step 4: Restart gateway to pick up new agent + channel
+          await runStep(OPENCLAW_BIN, ['gateway', 'restart'], 'Gateway restarted');
+
+          res.writeHead(200);
+          res.end(JSON.stringify({
+            ok: true,
+            agentId,
+            workspace: workspacePath,
+            steps,
+            message: `Agent "${name.trim()}" deployed (${steps.join(' → ')})`,
+          }));
+        })().catch(err => {
+          res.writeHead(500);
+          res.end(JSON.stringify({
+            error: err.message,
+            completedSteps: steps,
+          }));
+        });
+      } catch (err) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/delete-agent' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { agentId } = JSON.parse(body);
+        if (!agentId || !agentId.trim()) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'agentId is required' }));
+          return;
+        }
+        const { execFile } = require('child_process');
+        execFile(OPENCLAW_BIN, ['agents', 'delete', agentId.trim(), '--force'], { timeout: 15000 }, (err, stdout, stderr) => {
+          if (err) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: stderr || err.message }));
+            return;
+          }
+          // Restart gateway to reflect removal
+          execFile(OPENCLAW_BIN, ['gateway', 'restart'], { timeout: 15000 }, () => {});
+          res.writeHead(200);
+          res.end(JSON.stringify({ ok: true, message: `Agent "${agentId}" deleted` }));
+        });
+      } catch (err) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // ── Cron job management ──
+  if (url.pathname === '/cron' && req.method === 'GET') {
+    const { execFile } = require('child_process');
+    execFile(OPENCLAW_BIN, ['cron', 'list', '--json'], { timeout: 15000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: stderr || err.message }));
+        return;
+      }
+      try {
+        const data = JSON.parse(stdout);
+        res.writeHead(200);
+        res.end(JSON.stringify(data));
+      } catch {
+        res.writeHead(200);
+        res.end(JSON.stringify({ jobs: [] }));
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/cron-toggle' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { id, enabled } = JSON.parse(body);
+        const cmd = enabled ? 'enable' : 'disable';
+        const { execFile } = require('child_process');
+        execFile(OPENCLAW_BIN, ['cron', cmd, id], { timeout: 15000 }, (err, stdout, stderr) => {
+          if (err) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: stderr || err.message }));
+            return;
+          }
+          res.writeHead(200);
+          res.end(JSON.stringify({ ok: true }));
+        });
+      } catch (err) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/cron-delete' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { id } = JSON.parse(body);
+        const { execFile } = require('child_process');
+        execFile(OPENCLAW_BIN, ['cron', 'rm', id], { timeout: 15000 }, (err, stdout, stderr) => {
+          if (err) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: stderr || err.message }));
+            return;
+          }
+          res.writeHead(200);
+          res.end(JSON.stringify({ ok: true }));
+        });
+      } catch (err) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/cron-add' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { name, schedule, message, agent } = JSON.parse(body);
+        if (!name || !schedule || !message) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'name, schedule, and message are required' }));
+          return;
+        }
+        const args = ['cron', 'add', '--name', name, '--message', message, '--json'];
+        if (agent) args.push('--agent', agent);
+        // Parse schedule: "every X" or cron expression
+        if (schedule.startsWith('every ')) {
+          args.push('--every', schedule.replace('every ', ''));
+        } else {
+          args.push('--cron', schedule);
+        }
+        const { execFile } = require('child_process');
+        execFile(OPENCLAW_BIN, args, { timeout: 15000 }, (err, stdout, stderr) => {
+          if (err) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: stderr || err.message }));
+            return;
+          }
+          res.writeHead(200);
+          res.end(JSON.stringify({ ok: true }));
+        });
+      } catch (err) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === '/gateway-restart' && req.method === 'POST') {
+    const { execFile } = require('child_process');
+    execFile(OPENCLAW_BIN, ['gateway', 'restart'], { timeout: 15000 }, (err, stdout, stderr) => {
+      if (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: stderr || err.message }));
+        return;
+      }
+      res.writeHead(200);
+      res.end(JSON.stringify({ ok: true, message: 'Gateway restarted' }));
     });
     return;
   }

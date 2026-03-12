@@ -12,25 +12,13 @@ const WANDER_INTERVAL_MAX = 7000;
 const ACTIVE_REPOSITION_MIN = 5000;
 const ACTIVE_REPOSITION_MAX = 10000;
 const AGENT_RADIUS = 10;
-const REST_ROUTE_WAYPOINTS = [
-  { x: 500, y: 500 },
-  { x: 500, y: 340 },
-];
+const AISLE_WAYPOINT = { x: 450, y: 500 };
 
-function needsAisleDetour(sprite, targetX, targetY, spot) {
-  const movingToRest = sprite.zone === 'rest'
-    && sprite.x < 430
-    && targetX > 560
-    && sprite.y > 620
-    && targetY < 620;
-
-  const movingToDesk = (spot.posture === 'desk' || sprite.zone === 'work')
-    && sprite.x > 560
-    && sprite.y < 620
-    && targetX < 560
-    && targetY > 620;
-
-  return movingToRest || movingToDesk;
+function needsAisleDetour(sprite, targetX, targetY) {
+  const dx = Math.abs(sprite.x - targetX);
+  const dy = Math.abs(sprite.y - targetY);
+  // Only detour via aisle if crossing a large distance in both axes
+  return dx > 200 && dy > 150;
 }
 
 function setSpriteTarget(sprite, spot) {
@@ -39,9 +27,9 @@ function setSpriteTarget(sprite, spot) {
   sprite.anchorDirection = spot.direction || sprite.anchorDirection || 'down';
   sprite.posture = spot.posture || 'idle';
 
-  if (needsAisleDetour(sprite, spot.x, spot.y, spot)) {
-    const routePoints = REST_ROUTE_WAYPOINTS.map((point) => resolveWalkablePoint(sprite.zone, point.x, point.y, AGENT_RADIUS));
-    sprite.routePoints = [...routePoints, { x: spot.x, y: spot.y }];
+  if (needsAisleDetour(sprite, spot.x, spot.y)) {
+    const waypoint = resolveWalkablePoint(sprite.zone, AISLE_WAYPOINT.x, AISLE_WAYPOINT.y, AGENT_RADIUS);
+    sprite.routePoints = [waypoint, { x: spot.x, y: spot.y }];
     const firstStop = sprite.routePoints.shift();
     sprite.targetX = firstStop.x;
     sprite.targetY = firstStop.y;

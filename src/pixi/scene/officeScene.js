@@ -22,6 +22,10 @@ import {
 
 const AGENT_WORLD_SCALE = 3.1;
 const VIEW_ZOOM = 1.08;
+const CHAT_BUBBLE_DURATION = 20000; // ms to show bubble
+const CHAT_BUBBLE_FADE_START = 17000; // ms before starting fade
+const CHAT_BUBBLE_MAX_WIDTH = 220;
+const CHAT_BUBBLE_MAX_CHARS = 140;
 
 // Set to true to use tile-based rendering, false for legacy single-image
 const USE_TILE_RENDERER = true;
@@ -179,9 +183,28 @@ export async function createOfficeScene(app) {
     sprite.scale.set(AGENT_WORLD_SCALE, AGENT_WORLD_SCALE);
     sprite.roundPixels = true;
     ring.visible = false;
-    container.addChild(ring, sprite);
+
+    // Chat bubble container
+    const bubbleContainer = new Container();
+    bubbleContainer.visible = false;
+    const bubbleBg = new Graphics();
+    const bubbleText = new Text({
+      text: '',
+      style: {
+        fontFamily: 'Courier New',
+        fontSize: 11,
+        fill: '#fff',
+        wordWrap: true,
+        wordWrapWidth: CHAT_BUBBLE_MAX_WIDTH - 12,
+        lineHeight: 14,
+      },
+    });
+    bubbleText.anchor.set(0.5, 1);
+    bubbleContainer.addChild(bubbleBg, bubbleText);
+
+    container.addChild(ring, sprite, bubbleContainer);
     worldLayer.addChild(container);
-    node = { container, sprite, ring, libraryEntry };
+    node = { container, sprite, ring, libraryEntry, bubbleContainer, bubbleBg, bubbleText, lastBubbleText: '' };
     spriteNodes.set(agent.id, node);
     return node;
   }
@@ -231,6 +254,56 @@ export async function createOfficeScene(app) {
         node.ring.visible = true;
       } else {
         node.ring.visible = false;
+      }
+
+      // Chat bubble
+      const snippet = agent.chatSnippet;
+      const snippetTs = agent.chatSnippetTs || 0;
+      const elapsed = Date.now() - snippetTs;
+
+      if (snippet && elapsed < CHAT_BUBBLE_DURATION) {
+        // Update text only when it changes
+        const truncated = snippet.length > CHAT_BUBBLE_MAX_CHARS
+          ? snippet.slice(0, CHAT_BUBBLE_MAX_CHARS - 1) + '…'
+          : snippet;
+
+        if (truncated !== node.lastBubbleText) {
+          node.bubbleText.text = truncated;
+          node.lastBubbleText = truncated;
+        }
+
+        // Position bubble above agent head
+        const textBounds = node.bubbleText;
+        const tw = Math.min(textBounds.width, CHAT_BUBBLE_MAX_WIDTH);
+        const th = textBounds.height;
+        const padX = 8, padY = 5;
+        const bw = tw + padX * 2;
+        const bh = th + padY * 2;
+        const bubbleY = -68; // above sprite head
+
+        node.bubbleText.x = 0;
+        node.bubbleText.y = bubbleY - padY;
+
+        // Draw background rounded rect + pointer
+        node.bubbleBg.clear();
+        node.bubbleBg.roundRect(-bw / 2, bubbleY - bh - padY, bw, bh, 6);
+        node.bubbleBg.fill({ color: '#1a1a2e', alpha: 0.88 });
+        // Small pointer triangle
+        node.bubbleBg.moveTo(-5, bubbleY - padY);
+        node.bubbleBg.lineTo(0, bubbleY - padY + 6);
+        node.bubbleBg.lineTo(5, bubbleY - padY);
+        node.bubbleBg.closePath();
+        node.bubbleBg.fill({ color: '#1a1a2e', alpha: 0.88 });
+
+        // Fade out near end
+        const alpha = elapsed > CHAT_BUBBLE_FADE_START
+          ? 1 - (elapsed - CHAT_BUBBLE_FADE_START) / (CHAT_BUBBLE_DURATION - CHAT_BUBBLE_FADE_START)
+          : 1;
+        node.bubbleContainer.alpha = Math.max(0, alpha);
+        node.bubbleContainer.visible = true;
+      } else {
+        node.bubbleContainer.visible = false;
+        node.lastBubbleText = '';
       }
     }
   }

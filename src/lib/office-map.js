@@ -1,4 +1,4 @@
-import { getFurnitureCollisions } from './tile-map.js';
+import { getFurnitureCollisions, getFurnitureObjects, TILE_SCALE, onLayoutChange } from './tile-map.js';
 
 export const MAP_W = 980;
 export const MAP_H = 980;
@@ -129,46 +129,69 @@ export function resolveWalkablePoint(zone, x, y, padding = 8) {
   };
 }
 
-export const ZONE_SPOTS = {
-  // Working → near desks/computers (bottom area)
+// ---------------------------------------------------------------------------
+// Auto-derive zone spots from furniture categories
+// ---------------------------------------------------------------------------
+const CATEGORY_TO_ZONE = {
+  // Work — desk/computer related furniture
+  'Chair': 'work',
+  'Chair Facing A': 'work',
+  'Chair Facing B': 'work',
+  'Chair Facing C': 'work',
+  'Metal Table': 'work',
+  'Laptop': 'work',
+  'Small Screen B': 'work',
+  'Old Computer': 'work',
+
+  // Rest — relaxation / kitchen area
+  'Sofa': 'rest',
+  'Sofa B': 'rest',
+  'Sofa Facing A': 'rest',
+  'Sofa Facing B': 'rest',
+  'Coffee Table': 'rest',
+  'Wooden Table': 'rest',
+  'Vending Machine': 'rest',
+  'Fridge': 'rest',
+  'Water Cooler': 'rest',
+  'Water Cooler B': 'rest',
+
+  // Meeting — presentation / collaboration
+  'Blackboard': 'meeting',
+  'Whiteboard A': 'meeting',
+  'Whiteboard B': 'meeting',
+
+  // Blocked — storage / obstacles
+  'Crates': 'blocked',
+  'Box Stack A': 'blocked',
+  'Tall Shelf A': 'blocked',
+  'Tall Shelf B': 'blocked',
+  'Bookcase A': 'blocked',
+  'Bookcase B': 'blocked',
+};
+
+const ZONE_POSTURE = {
+  work: 'desk',
+  rest: 'idle',
+  meeting: 'meeting',
+  blocked: 'blocked',
+};
+
+const FALLBACK_SPOTS = {
   work: [
-    { x: 265, y: 660, direction: 'right', posture: 'desk' },
-    { x: 479, y: 660, direction: 'right', posture: 'desk' },
-    { x: 335, y: 660, direction: 'right', posture: 'desk' },
-    { x: 549, y: 660, direction: 'right', posture: 'desk' },
-    { x: 265, y: 620, direction: 'right', posture: 'desk' },
-    { x: 479, y: 620, direction: 'right', posture: 'desk' },
-    { x: 335, y: 620, direction: 'right', posture: 'desk' },
-    { x: 549, y: 620, direction: 'right', posture: 'desk' },
+    { x: 350, y: 600, direction: 'up', posture: 'desk' },
+    { x: 450, y: 600, direction: 'up', posture: 'desk' },
   ],
-  // Meeting → center area near coffee machine / paintings
-  meeting: [
-    { x: 400, y: 300, direction: 'down', posture: 'meeting' },
-    { x: 450, y: 300, direction: 'down', posture: 'meeting' },
-    { x: 400, y: 350, direction: 'right', posture: 'meeting' },
-    { x: 450, y: 350, direction: 'left', posture: 'meeting' },
-  ],
-  // Idle/Rest → top-right near vending machine, water coolers
   rest: [
-    { x: 629, y: 330, direction: 'up', posture: 'idle' },
-    { x: 680, y: 330, direction: 'up', posture: 'idle' },
-    { x: 629, y: 380, direction: 'right', posture: 'idle' },
-    { x: 680, y: 380, direction: 'left', posture: 'idle' },
-    { x: 629, y: 280, direction: 'up', posture: 'idle' },
-    { x: 680, y: 280, direction: 'up', posture: 'idle' },
-    { x: 580, y: 330, direction: 'right', posture: 'idle' },
-    { x: 580, y: 380, direction: 'right', posture: 'idle' },
-    { x: 710, y: 330, direction: 'left', posture: 'idle' },
-    { x: 710, y: 380, direction: 'left', posture: 'idle' },
+    { x: 550, y: 350, direction: 'down', posture: 'idle' },
+    { x: 600, y: 400, direction: 'left', posture: 'idle' },
   ],
-  // Blocked → near shelves/crates top-left
+  meeting: [
+    { x: 400, y: 350, direction: 'down', posture: 'meeting' },
+    { x: 450, y: 350, direction: 'down', posture: 'meeting' },
+  ],
   blocked: [
-    { x: 260, y: 580, direction: 'up', posture: 'blocked' },
-    { x: 320, y: 580, direction: 'up', posture: 'blocked' },
-    { x: 260, y: 630, direction: 'up', posture: 'blocked' },
-    { x: 320, y: 630, direction: 'up', posture: 'blocked' },
-    { x: 380, y: 580, direction: 'up', posture: 'blocked' },
-    { x: 380, y: 630, direction: 'up', posture: 'blocked' },
+    { x: 300, y: 500, direction: 'up', posture: 'blocked' },
+    { x: 350, y: 500, direction: 'up', posture: 'blocked' },
   ],
   fallback: [
     { x: 400, y: 500, direction: 'down', posture: 'idle' },
@@ -178,6 +201,68 @@ export const ZONE_SPOTS = {
     { x: 500, y: 600, direction: 'down', posture: 'idle' },
   ],
 };
+
+let cachedZoneSpots = null;
+
+function computeZoneSpots() {
+  const furniture = getFurnitureObjects();
+  const zones = { work: [], rest: [], meeting: [], blocked: [], fallback: [...FALLBACK_SPOTS.fallback] };
+
+  for (const f of furniture) {
+    // Skip table-top decorations (no collision = sits on furniture, not a destination)
+    if (!f.collision) continue;
+
+    // Manual zone override takes priority, then category auto-mapping
+    const zone = f.zone || CATEGORY_TO_ZONE[f.cat];
+    if (!zone || !zones[zone]) continue;
+
+    const fw = f.src.w * TILE_SCALE;
+    const fh = f.src.h * TILE_SCALE;
+    const centerX = f.x + fw / 2;
+    const posture = ZONE_POSTURE[zone] || 'idle';
+
+    // Place agent in front of the furniture (below it), with enough clearance
+    zones[zone].push({
+      x: centerX,
+      y: f.y + fh + 45,
+      direction: 'up',
+      posture,
+    });
+
+    // Add a second spot slightly offset for variety
+    zones[zone].push({
+      x: centerX + 25,
+      y: f.y + fh + 55,
+      direction: 'up',
+      posture,
+    });
+  }
+
+  // Fill empty zones with fallbacks
+  for (const zone of ['work', 'rest', 'meeting', 'blocked']) {
+    if (zones[zone].length === 0) {
+      zones[zone] = [...(FALLBACK_SPOTS[zone] || FALLBACK_SPOTS.fallback)];
+    }
+  }
+
+  return zones;
+}
+
+function getZoneSpots() {
+  if (!cachedZoneSpots) {
+    cachedZoneSpots = computeZoneSpots();
+  }
+  return cachedZoneSpots;
+}
+
+// Automatically refresh spots when layout changes
+onLayoutChange(() => { cachedZoneSpots = null; });
+
+export const ZONE_SPOTS = new Proxy({}, {
+  get(_, zone) {
+    return getZoneSpots()[zone];
+  },
+});
 
 function isOccupiedPoint(point, takenPositions, minGap = 68) {
   return takenPositions.some((p) => Math.abs(p.x - point.x) < minGap && Math.abs(p.y - point.y) < minGap);

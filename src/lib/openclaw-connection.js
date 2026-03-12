@@ -132,7 +132,7 @@ export function createOpenClawConnection({ onAgentEvent, onStatusChange }) {
       if (text) {
         // Take last meaningful chunk of text
         const clean = text.replace(/[#*_\n]+/g, ' ').trim();
-        const task = clean.length > 50 ? '…' + clean.slice(-48) : clean;
+        const task = clean.length > 140 ? '…' + clean.slice(-138) : clean;
         onAgentEvent?.({
           agent: agentId,
           state: 'working',

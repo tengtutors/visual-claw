@@ -51,6 +51,8 @@ function createAgentFromEvent(event) {
     currentTaskTitle: event.task || null,
     currentTool: event.tool || null,
     lastAction: event.task || 'Idle',
+    chatSnippet: event.task || null,
+    chatSnippetTs: event.task ? Date.now() : 0,
     collaboratingWith: [],
     blockedReason: state === STATES.BLOCKED ? (event.reason || 'Blocked') : null,
     startedCurrentTaskAt: event.task ? new Date().toISOString() : null,
@@ -144,6 +146,8 @@ function reducer(state, action) {
           lastUpdated: new Date(event.timestamp ? event.timestamp * 1000 : Date.now()).toISOString(),
           health: newState === STATES.BLOCKED ? 'stressed' : newState === STATES.OFFLINE ? 'resting' : 'good',
           blockedReason: newState === STATES.BLOCKED ? (event.reason || 'Blocked') : null,
+          // Chat bubble: update when new task text arrives
+          ...(event.task && event.task !== prev.currentTask ? { chatSnippet: event.task, chatSnippetTs: Date.now() } : {}),
         };
 
         // Track completions and XP

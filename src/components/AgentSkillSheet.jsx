@@ -329,30 +329,6 @@ export default function AgentSkillSheet() {
           </div>
         )}
 
-        {/* ─── Skills ─── */}
-        <div className="rpg-section">
-          <div className="rpg-section-title">Skills</div>
-          <div className="rpg-skills-list">
-            {sortedSkills.map(([name, val]) => (
-              <SkillBar key={name} name={name} value={val} />
-            ))}
-          </div>
-        </div>
-
-        {/* ─── Tools ─── */}
-        {tools.length > 0 && (
-          <div className="rpg-section">
-            <div className="rpg-section-title">Equipment</div>
-            <div className="rpg-tools">
-              {tools.map((t) => (
-                <span key={t} className="rpg-tool-badge" title={t}>
-                  {TOOL_ICONS[t] || '🔧'} {t}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* ─── Current Action ─── */}
         <div className="rpg-section">
           <div className="rpg-section-title">Status</div>

@@ -62,20 +62,13 @@ const CLOSE_BTN = {
   fontFamily: 'monospace',
 };
 
-const STATE_DOT = (color) => ({
-  display: 'inline-block',
-  width: '8px',
-  height: '8px',
-  borderRadius: '50%',
-  backgroundColor: color,
-  marginRight: '6px',
-});
-
 // ── Gateway Setup (Doormat) ──
 function GatewayPanel() {
   const [token, setToken] = useState('');
   const [url, setUrl] = useState('ws://localhost:18789');
   const [status, setStatus] = useState('idle'); // idle | checking | connected | failed
+  const [restarting, setRestarting] = useState(false);
+  const [restartMsg, setRestartMsg] = useState(null);
 
   const handleConnect = () => {
     setStatus('checking');
@@ -99,6 +92,22 @@ function GatewayPanel() {
     }
   };
 
+  const handleRestart = async () => {
+    setRestarting(true);
+    setRestartMsg(null);
+    try {
+      const resp = await fetch(`${FILE_SERVER}/gateway-restart`, { method: 'POST' });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Restart failed');
+      setRestartMsg({ ok: true, text: 'Gateway restarted — reconnecting...' });
+      setTimeout(handleConnect, 3000);
+    } catch (err) {
+      setRestartMsg({ ok: false, text: err.message });
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   return (
     <>
       <div style={CARD}>
@@ -113,9 +122,27 @@ function GatewayPanel() {
           {status === 'connected' && 'Connected to local gateway!'}
           {status === 'failed' && 'Could not connect. Enter details below.'}
         </div>
-        <button style={{ ...BTN, background: status === 'connected' ? '#2a6' : '#468' }} onClick={handleConnect}>
-          {status === 'checking' ? 'Checking...' : status === 'connected' ? 'Connected' : 'Auto-detect'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button style={{ ...BTN, background: status === 'connected' ? '#2a6' : '#468', flex: 1 }} onClick={handleConnect}>
+            {status === 'checking' ? 'Checking...' : status === 'connected' ? 'Connected' : 'Auto-detect'}
+          </button>
+          <button
+            style={{ ...BTN, background: '#da8', color: '#000', flex: 1, opacity: restarting ? 0.6 : 1 }}
+            disabled={restarting}
+            onClick={handleRestart}
+          >
+            {restarting ? 'Restarting...' : 'Restart Gateway'}
+          </button>
+        </div>
+        {restartMsg && (
+          <div style={{
+            marginTop: '8px', padding: '8px 10px', borderRadius: '4px', fontSize: '12px',
+            background: restartMsg.ok ? '#1a2a1f' : '#2a1a1a',
+            color: restartMsg.ok ? '#4a8' : '#a66',
+          }}>
+            {restartMsg.text}
+          </div>
+        )}
       </div>
       {(status === 'failed' || status === 'idle') && (
         <div style={CARD}>
@@ -137,23 +164,39 @@ const FILE_SERVER = 'http://127.0.0.1:18790';
 function CreateAgentPanel({ agents }) {
   const [task, setTask] = useState('');
   const [agentName, setAgentName] = useState('');
-  const [model, setModel] = useState('');
   const [botToken, setBotToken] = useState('');
-  const [models, setModels] = useState([]);
+  const [deploying, setDeploying] = useState(false);
+  const [deployResult, setDeployResult] = useState(null);
+  const [allAgents, setAllAgents] = useState([]);
+  const [deleting, setDeleting] = useState(null);
 
-  useEffect(() => {
-    fetch(`${FILE_SERVER}/models`)
+  const fetchAgents = () => {
+    fetch(`${FILE_SERVER}/agents`)
       .then(r => r.json())
-      .then(list => {
-        setModels(list);
-        if (list.length > 0 && !model) setModel(list[0]);
-      })
-      .catch(() => {
-        // Fallback if file server not running
-        setModels(['zai/glm-5', 'zai/glm-4.7', 'zai/glm-4.7-flash']);
-        if (!model) setModel('zai/glm-5');
+      .then(list => setAllAgents(list))
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchAgents(); }, []);
+
+  const handleDelete = async (id) => {
+    if (!confirm(`Delete agent "${id}"? This cannot be undone.`)) return;
+    setDeleting(id);
+    try {
+      const resp = await fetch(`${FILE_SERVER}/delete-agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: id }),
       });
-  }, []);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Delete failed');
+      fetchAgents();
+    } catch (err) {
+      setDeployResult({ error: err.message });
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   return (
     <>
@@ -166,12 +209,6 @@ function CreateAgentPanel({ agents }) {
         <div style={{ fontSize: '10px', color: '#555', marginTop: '4px' }}>
           Get from @BotFather on Telegram
         </div>
-        <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Model</label>
-        <select style={{ ...INPUT, cursor: 'pointer' }} value={model} onChange={e => setModel(e.target.value)}>
-          {models.map(m => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
         <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Task / Instructions</label>
         <textarea
           style={{ ...INPUT, height: '100px', resize: 'vertical' }}
@@ -179,28 +216,83 @@ function CreateAgentPanel({ agents }) {
           onChange={e => setTask(e.target.value)}
           placeholder="Tell the agent what to do..."
         />
-        <button style={BTN}>Deploy Agent</button>
+        <button
+          style={{ ...BTN, opacity: deploying ? 0.6 : 1, background: deployResult?.ok ? '#2a6' : deployResult?.error ? '#a44' : '#2a6' }}
+          disabled={deploying}
+          onClick={async () => {
+            if (!agentName.trim()) { setDeployResult({ error: 'Agent name is required' }); return; }
+            setDeploying(true);
+            setDeployResult(null);
+            try {
+              const resp = await fetch(`${FILE_SERVER}/create-agent`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: agentName, botToken, task }),
+              });
+              const data = await resp.json();
+              if (!resp.ok) {
+                const partial = data.completedSteps?.length ? ` (completed: ${data.completedSteps.join(', ')})` : '';
+                throw new Error((data.error || 'Deploy failed') + partial);
+              }
+              setDeployResult({ ok: true, message: data.message });
+              setAgentName(''); setTask(''); setBotToken('');
+            } catch (err) {
+              setDeployResult({ error: err.message });
+            } finally {
+              setDeploying(false);
+            }
+          }}
+        >
+          {deploying ? 'Deploying...' : 'Deploy Agent'}
+        </button>
+        {deployResult && (
+          <div style={{
+            marginTop: '8px', padding: '8px 10px', borderRadius: '4px', fontSize: '12px',
+            background: deployResult.ok ? '#1a2a1f' : '#2a1a1a',
+            color: deployResult.ok ? '#4a8' : '#a66',
+          }}>
+            {deployResult.ok ? deployResult.message : deployResult.error}
+          </div>
+        )}
       </div>
-      {agents && agents.length > 0 && (
+      {allAgents.length > 0 && (
         <div style={CARD}>
           <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#8a8' }}>
-            Active Agents ({agents.length})
+            All Agents ({allAgents.length})
           </div>
-          {agents.map(a => (
-            <div key={a.id} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '6px 10px', background: '#0d1117', borderRadius: '4px', marginBottom: '3px',
-              fontSize: '12px',
-            }}>
-              <span style={{ color: '#ccc' }}>{a.name || a.id}</span>
-              <span style={{
-                color: a.state === 'working' ? '#4a8' : a.state === 'blocked' ? '#a44' : '#888',
-                fontSize: '11px',
+          {allAgents.map(a => {
+            const live = (agents || []).find(la => la.id === a.id);
+            const state = live?.state || 'offline';
+            return (
+              <div key={a.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '6px 10px', background: '#0d1117', borderRadius: '4px', marginBottom: '3px',
+                fontSize: '12px',
               }}>
-                {a.state || 'idle'}
-              </span>
-            </div>
-          ))}
+                <div style={{ flex: 1 }}>
+                  <span style={{ color: '#ccc' }}>{a.name || a.id}</span>
+                  <span style={{ color: '#555', fontSize: '10px', marginLeft: '6px' }}>{a.model}</span>
+                </div>
+                <span style={{
+                  color: state === 'working' ? '#4a8' : state === 'blocked' ? '#a44' : '#666',
+                  fontSize: '11px', marginRight: '8px',
+                }}>
+                  {state}
+                </span>
+                <button
+                  style={{
+                    background: 'none', border: '1px solid #a44', borderRadius: '3px',
+                    color: deleting === a.id ? '#666' : '#a44', fontSize: '10px', padding: '2px 6px',
+                    cursor: 'pointer', fontFamily: "'Courier New', monospace",
+                  }}
+                  disabled={deleting === a.id}
+                  onClick={() => handleDelete(a.id)}
+                >
+                  {deleting === a.id ? '...' : 'x'}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </>
@@ -209,239 +301,159 @@ function CreateAgentPanel({ agents }) {
 
 // ── Cron / Scheduled Tasks (Water Cooler / Coffee) ──
 function CronTasksPanel({ agents }) {
-  const [cronExpr, setCronExpr] = useState('');
-  const [cronTask, setCronTask] = useState('');
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cronName, setCronName] = useState('');
+  const [cronSchedule, setCronSchedule] = useState('');
+  const [cronMessage, setCronMessage] = useState('');
   const [cronAgent, setCronAgent] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [result, setResult] = useState(null);
+  const [allAgents, setAllAgents] = useState([]);
 
-  // Placeholder scheduled tasks
-  const scheduledTasks = [
-    { id: 1, cron: '0 9 * * 1-5', task: 'Daily standup summary', agent: 'Atlas', enabled: true },
-    { id: 2, cron: '0 */6 * * *', task: 'Health check all services', agent: 'Relay', enabled: true },
-    { id: 3, cron: '0 0 * * 0', task: 'Weekly security scan', agent: 'Cipher', enabled: false },
-  ];
+  const fetchJobs = () => {
+    fetch(`${FILE_SERVER}/cron`)
+      .then(r => r.json())
+      .then(data => { setJobs(data.jobs || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchJobs();
+    fetch(`${FILE_SERVER}/agents`).then(r => r.json()).then(setAllAgents).catch(() => {});
+  }, []);
+
+  const toggleJob = async (id, enabled) => {
+    await fetch(`${FILE_SERVER}/cron-toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, enabled }),
+    });
+    fetchJobs();
+  };
+
+  const deleteJob = async (id) => {
+    if (!confirm('Delete this scheduled task?')) return;
+    await fetch(`${FILE_SERVER}/cron-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    fetchJobs();
+  };
+
+  const addJob = async () => {
+    if (!cronName.trim() || !cronSchedule.trim() || !cronMessage.trim()) {
+      setResult({ error: 'Name, schedule, and message are required' });
+      return;
+    }
+    setAdding(true);
+    setResult(null);
+    try {
+      const resp = await fetch(`${FILE_SERVER}/cron-add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cronName, schedule: cronSchedule, message: cronMessage, agent: cronAgent || undefined }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Failed');
+      setResult({ ok: true, message: 'Task added' });
+      setCronName(''); setCronSchedule(''); setCronMessage(''); setCronAgent('');
+      fetchJobs();
+    } catch (err) {
+      setResult({ error: err.message });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const statusColor = (s) => s === 'ok' ? '#4a8' : s === 'error' ? '#a44' : s === 'skipped' ? '#da8' : '#666';
+
+  function formatSchedule(job) {
+    const s = job.schedule;
+    if (s?.kind === 'every') {
+      const mins = Math.round((s.everyMs || 0) / 60000);
+      if (mins < 60) return `every ${mins}m`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return `every ${hrs}h`;
+      return `every ${Math.round(hrs / 24)}d`;
+    }
+    if (s?.kind === 'cron') return s.expr || 'cron';
+    return '?';
+  }
 
   return (
     <>
       <div style={CARD}>
-        <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', color: '#da8' }}>Scheduled Tasks</div>
-        {scheduledTasks.map(t => (
-          <div key={t.id} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '8px 10px', background: '#0d1117', borderRadius: '4px', marginBottom: '4px',
-            fontSize: '12px', opacity: t.enabled ? 1 : 0.5,
+        <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', color: '#da8' }}>
+          Scheduled Tasks ({jobs.length})
+        </div>
+        {loading && <div style={{ color: '#666', fontSize: '12px' }}>Loading...</div>}
+        {jobs.map(j => (
+          <div key={j.id} style={{
+            padding: '6px 10px', background: '#0d1117', borderRadius: '4px', marginBottom: '4px',
+            fontSize: '11px', opacity: j.enabled ? 1 : 0.45,
           }}>
-            <div>
-              <div style={{ color: '#ccc' }}>{t.task}</div>
-              <div style={{ color: '#666', fontSize: '10px', marginTop: '2px' }}>
-                {t.cron} &middot; {t.agent}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: '#ccc', fontSize: '12px' }}>{j.name}</div>
+                <div style={{ color: '#666', fontSize: '10px', marginTop: '2px' }}>
+                  {formatSchedule(j)} · {j.agentId} · <span style={{ color: statusColor(j.state?.lastStatus) }}>{j.state?.lastStatus || '—'}</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <button
+                  style={{ background: 'none', border: `1px solid ${j.enabled ? '#4a8' : '#a44'}`, borderRadius: '3px', color: j.enabled ? '#4a8' : '#a44', fontSize: '10px', padding: '2px 6px', cursor: 'pointer', fontFamily: "'Courier New', monospace" }}
+                  onClick={() => toggleJob(j.id, !j.enabled)}
+                >
+                  {j.enabled ? 'ON' : 'OFF'}
+                </button>
+                <button
+                  style={{ background: 'none', border: '1px solid #a44', borderRadius: '3px', color: '#a44', fontSize: '10px', padding: '2px 6px', cursor: 'pointer', fontFamily: "'Courier New', monospace" }}
+                  onClick={() => deleteJob(j.id)}
+                >
+                  x
+                </button>
               </div>
             </div>
-            <span style={{
-              color: t.enabled ? '#4a8' : '#a44',
-              fontSize: '11px', fontWeight: 'bold',
-            }}>
-              {t.enabled ? 'ON' : 'OFF'}
-            </span>
           </div>
         ))}
       </div>
       <div style={CARD}>
         <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#adf' }}>New Schedule</div>
-        <label style={{ fontSize: '11px', color: '#8a8' }}>Assign to Agent</label>
+        <label style={{ fontSize: '11px', color: '#8a8' }}>Name</label>
+        <input style={INPUT} value={cronName} onChange={e => setCronName(e.target.value)} placeholder="e.g., Daily Report" />
+        <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Schedule</label>
+        <input style={INPUT} value={cronSchedule} onChange={e => setCronSchedule(e.target.value)} placeholder="e.g., every 6h  or  0 9 * * 1-5" />
+        <div style={{ fontSize: '10px', color: '#555', marginTop: '4px' }}>
+          "every 3h" / "every 1d" or cron: min hour day month weekday
+        </div>
+        <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Agent</label>
         <select style={{ ...INPUT, cursor: 'pointer' }} value={cronAgent} onChange={e => setCronAgent(e.target.value)}>
-          <option value="">Select agent...</option>
-          {(agents || []).map(a => (
+          <option value="">Default (main)</option>
+          {allAgents.map(a => (
             <option key={a.id} value={a.id}>{a.name || a.id}</option>
           ))}
         </select>
-        <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Cron Expression</label>
-        <input style={INPUT} value={cronExpr} onChange={e => setCronExpr(e.target.value)} placeholder="e.g., 0 9 * * 1-5" />
-        <div style={{ fontSize: '10px', color: '#555', marginTop: '4px' }}>
-          min hour day month weekday
-        </div>
-        <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Task</label>
+        <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Message</label>
         <textarea
           style={{ ...INPUT, height: '60px', resize: 'vertical' }}
-          value={cronTask}
-          onChange={e => setCronTask(e.target.value)}
-          placeholder="What should the agent do on this schedule?"
+          value={cronMessage}
+          onChange={e => setCronMessage(e.target.value)}
+          placeholder="What should the agent do?"
         />
-        <button style={BTN}>Add Schedule</button>
-      </div>
-    </>
-  );
-}
-
-// ── Event Log (Shelves / Printer) ──
-function EventLogPanel({ agents, events }) {
-  const stateColor = (state) => {
-    if (state === 'working') return '#4a8';
-    if (state === 'blocked') return '#a44';
-    if (state === 'meeting') return '#da8';
-    if (state === 'reviewing') return '#adf';
-    return '#888';
-  };
-
-  // Gather all recent events from all agents
-  const allEvents = [];
-  for (const a of (agents || [])) {
-    for (const evt of (a.recentEvents || [])) {
-      allEvents.push({ ...evt, agentName: a.name || a.id, agentState: a.state });
-    }
-  }
-  allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  const displayEvents = allEvents.slice(0, 30);
-
-  // Summary counts
-  const totalAgents = (agents || []).length;
-  const working = (agents || []).filter(a => a.state === 'working').length;
-  const blocked = (agents || []).filter(a => a.state === 'blocked').length;
-  const idle = (agents || []).filter(a => a.state === 'idle').length;
-
-  return (
-    <>
-      <div style={CARD}>
-        <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', color: '#adf' }}>Workspace Overview</div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#e0e0e0' }}>{totalAgents}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>Total</div>
+        <button style={{ ...BTN, opacity: adding ? 0.6 : 1 }} disabled={adding} onClick={addJob}>
+          {adding ? 'Adding...' : 'Add Schedule'}
+        </button>
+        {result && (
+          <div style={{
+            marginTop: '8px', padding: '8px 10px', borderRadius: '4px', fontSize: '12px',
+            background: result.ok ? '#1a2a1f' : '#2a1a1a',
+            color: result.ok ? '#4a8' : '#a66',
+          }}>
+            {result.ok ? result.message : result.error}
           </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#4a8' }}>{working}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>Working</div>
-          </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#a44' }}>{blocked}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>Blocked</div>
-          </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#888' }}>{idle}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>Idle</div>
-          </div>
-        </div>
-      </div>
-      <div style={CARD}>
-        <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', color: '#da8' }}>
-          Activity Feed
-        </div>
-        {displayEvents.length === 0 && (
-          <div style={{ color: '#666', fontSize: '12px', padding: '8px' }}>No events yet.</div>
         )}
-        {displayEvents.map((evt, i) => (
-          <div key={i} style={{
-            padding: '5px 10px', fontSize: '11px',
-            borderLeft: `2px solid ${evt.type === 'blocked' ? '#a44' : evt.type === 'task_completed' ? '#4a8' : '#468'}`,
-            marginBottom: '3px', paddingLeft: '8px',
-            background: '#0d1117', borderRadius: '0 4px 4px 0',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#adf', fontWeight: 'bold' }}>{evt.agentName}</span>
-              <span style={{ color: '#555' }}>
-                {new Date(evt.timestamp).toLocaleTimeString()}
-              </span>
-            </div>
-            <div style={{ color: '#888', marginTop: '2px' }}>{evt.label}</div>
-          </div>
-        ))}
-      </div>
-      <div style={CARD}>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#adf' }}>
-          Agent Roster
-        </div>
-        {(agents || []).map(a => (
-          <div key={a.id} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '6px 10px', background: '#0d1117', borderRadius: '4px', marginBottom: '3px',
-            fontSize: '12px',
-          }}>
-            <div>
-              <span style={STATE_DOT(stateColor(a.state))} />
-              <span style={{ color: '#ccc' }}>{a.name || a.id}</span>
-              <span style={{ color: '#666', fontSize: '10px', marginLeft: '6px' }}>{a.role}</span>
-            </div>
-            <span style={{ color: stateColor(a.state), fontSize: '11px' }}>{a.state}</span>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
-// ── Workspace Config (Vending Machine / Boxes) ──
-function WorkspaceConfigPanel({ agents }) {
-  const [workspaceName, setWorkspaceName] = useState('My Workspace');
-  const [defaultModel, setDefaultModel] = useState('');
-  const [notifyBlocked, setNotifyBlocked] = useState(true);
-  const [notifyComplete, setNotifyComplete] = useState(true);
-  const [autoReconnect, setAutoReconnect] = useState(true);
-  const [models, setModels] = useState([]);
-
-  useEffect(() => {
-    fetch(`${FILE_SERVER}/models`)
-      .then(r => r.json())
-      .then(list => {
-        setModels(list);
-        if (list.length > 0 && !defaultModel) setDefaultModel(list[0]);
-      })
-      .catch(() => {});
-  }, []);
-
-  const totalTasks = (agents || []).reduce((sum, a) => sum + (a.tasksCompleted || 0), 0);
-  const totalBlocks = (agents || []).reduce((sum, a) => sum + (a.totalBlocks || 0), 0);
-
-  return (
-    <>
-      <div style={CARD}>
-        <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', color: '#adf' }}>Workspace</div>
-        <label style={{ fontSize: '11px', color: '#8a8' }}>Workspace Name</label>
-        <input style={INPUT} value={workspaceName} onChange={e => setWorkspaceName(e.target.value)} />
-        <label style={{ fontSize: '11px', color: '#8a8', marginTop: '8px', display: 'block' }}>Default Model</label>
-        <select style={{ ...INPUT, cursor: 'pointer' }} value={defaultModel} onChange={e => setDefaultModel(e.target.value)}>
-          {models.map(m => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-        <button style={{ ...BTN, marginTop: '12px' }}>Save</button>
-      </div>
-      <div style={CARD}>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', color: '#da8' }}>Notifications</div>
-        {[
-          ['Agent blocked', notifyBlocked, setNotifyBlocked],
-          ['Task completed', notifyComplete, setNotifyComplete],
-          ['Auto-reconnect', autoReconnect, setAutoReconnect],
-        ].map(([label, value, setter]) => (
-          <div key={label} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '6px 10px', background: '#0d1117', borderRadius: '4px', marginBottom: '3px',
-            fontSize: '12px', cursor: 'pointer',
-          }} onClick={() => setter(!value)}>
-            <span style={{ color: '#ccc' }}>{label}</span>
-            <span style={{
-              color: value ? '#4a8' : '#a44',
-              fontSize: '11px', fontWeight: 'bold',
-            }}>
-              {value ? 'ON' : 'OFF'}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div style={CARD}>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#adf' }}>Workspace Stats</div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4a8' }}>{totalTasks}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>Total Tasks</div>
-          </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#a44' }}>{totalBlocks}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>Total Blocks</div>
-          </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#adf' }}>{(agents || []).length}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>Agents</div>
-          </div>
-        </div>
       </div>
     </>
   );
@@ -451,8 +463,6 @@ const PANELS = {
   gateway_token: GatewayPanel,
   create_agent: CreateAgentPanel,
   cron_tasks: CronTasksPanel,
-  event_log: EventLogPanel,
-  workspace_config: WorkspaceConfigPanel,
 };
 
 export default function FurniturePanel({ action, label, icon, agents, events, onClose }) {
