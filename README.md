@@ -1,63 +1,66 @@
 # Visual Claw
 
-Visual Claw is a Chrome extension that turns your OpenClaw agents into a living pixel-art workspace. It started as a monitoring view, and now also includes interactive office furniture, an agent detail panel, optional workspace file access, and a local interior design tool for evolving the office layout.
+Visual Claw is a Chrome extension that turns your OpenClaw AI agents into a living pixel-art office. Watch agents walk, idle, and work in real time — click them for details, rearrange the furniture, create custom avatars, and manage your agent fleet from the browser sidebar.
 
 ## What It Does
 
-- Visualizes OpenClaw agents in real time inside a tile-based office
-- Maps agent activity to rooms, movement, and status highlights
-- Lets users click interactive furniture to open workspace panels
-- Shows an RPG-style agent sheet with recent activity and editable workspace files
-- Includes a browser-based interior design tool for rearranging furniture and planning new interactions
+- Visualizes OpenClaw agents as animated pixel-art characters in a tile-based office
+- Agents walk, idle, and work with directional sprite animations
+- Chat reply snippets appear as speech bubbles above agents (20s with fade-out, up to 140 chars)
+- Click agents to open an RPG-style skill sheet with activity, workspace files, and stats
+- Click interactive furniture to open management panels
+- Drag-and-drop interior design tool for rearranging the office
+- Custom avatar editor with sprite sheet generation and flood-fill background removal
 
-## Current Workflow
+## Features
 
-Visual Claw now has three layers that work together:
+### Live Agent Visualization
+Agents connected to the OpenClaw gateway appear as animated characters. Each agent has walk, idle, and work animations with four-directional movement. Agent state (working, meeting, waiting, blocked) is reflected visually with status colors and movement patterns.
 
-1. **OpenClaw gateway connection**
-   - The extension connects to the local OpenClaw gateway over WebSocket.
-   - Gateway events are translated into simplified workspace states such as `working`, `meeting`, `waiting`, and `blocked`.
+### Custom Avatars
+Create personalized pixel-art avatars for your agents using the built-in avatar editor. Upload any image, crop to a sprite-friendly format, and the editor generates a full animation sheet (walk, idle, work) with automatic flood-fill background removal.
 
-2. **Workspace UI**
-   - The side panel and dashboard render the same live office state.
-   - Clicking an agent opens the skill sheet.
-   - Clicking interactive furniture opens a panel tied to that object.
+### Chat Bubbles
+When agents reply to messages, a snippet of their response appears as a speech bubble above their character. Bubbles stay visible for 20 seconds and fade out gracefully. Supports up to 140 characters of text.
 
-3. **Optional local tools**
-   - `tools/workspace-file-server.js` exposes safe local endpoints for reading agent metadata, selected workspace files, and local gateway discovery.
-   - `tools/interior-design.html` is a standalone design surface for planning and exporting furniture layouts.
+### Interactive Furniture
+Some furniture pieces are mapped to management panels:
+
+| Object | Action |
+|--------|--------|
+| Blackboard | Edit Layout |
+
+When you click a mapped object, its corresponding panel opens as an overlay.
+
+### Interior Design
+Rearrange the office layout with the drag-and-drop design tool. Place furniture, set collision zones, assign interactive actions, and save layouts that persist across sessions via the local file server.
+
+### Agent Skill Sheet
+Click any agent to view their profile — recent activity, current state, workspace files (SOUL.md, IDENTITY.md, etc.), and display name. Files can be viewed and edited directly from the panel.
+
+## Architecture
+
+Visual Claw has three layers:
+
+1. **OpenClaw Gateway Connection**
+   The extension connects to the local OpenClaw gateway over WebSocket. Gateway events are translated into workspace states (working, meeting, waiting, blocked) that drive character animations and status indicators.
+
+2. **Chrome Extension UI**
+   Available as both a side panel and a full-page dashboard. The same live office renders in both views. Clicking agents opens the skill sheet; clicking interactive furniture opens management panels.
+
+3. **Local File Server** (optional)
+   `tools/workspace-file-server.js` bridges the extension with the OpenClaw CLI and local filesystem. It provides endpoints for agent management, layout persistence, cron tasks, file access, and gateway control.
 
 ## Gateway Discovery
 
-Visual Claw now discovers the local OpenClaw gateway at runtime instead of depending on a token baked into the extension build.
+At startup the extension:
 
-At startup it:
+1. Asks the local file server for gateway details from `~/.openclaw/openclaw.json`
+2. Receives the local WebSocket URL and auth token
+3. Attempts the discovered gateway first
+4. Falls back to standard localhost addresses if discovery is unavailable
 
-1. asks the local helper server for gateway details from `~/.openclaw/openclaw.json`
-2. receives the local WebSocket URL and auth token
-3. attempts the discovered gateway first
-4. falls back to standard localhost gateway addresses if discovery is unavailable
-
-This lets the same extension build work on different computers without re-baking a machine-specific token.
-
-## Interactive Furniture Workflow
-
-The office is no longer just decorative. Some furniture pieces are mapped to product actions in [src/lib/tile-map.js](/Users/teng/visual%20claw/src/lib/tile-map.js).
-
-Current mappings:
-
-- `computer_topleft` -> `Create Agent`
-- `cooler_left` -> `Scheduled Tasks`
-- `vending_machine` -> `Workspace Settings`
-- `bookshelf_right` -> `Event Log`
-
-When you click one of those objects in the map:
-
-- [src/components/PixiOfficeMap.jsx](/Users/teng/visual%20claw/src/components/PixiOfficeMap.jsx) hit-tests the furniture
-- the matching action is looked up from `INTERACTIVE_FURNITURE`
-- [src/components/FurniturePanel.jsx](/Users/teng/visual%20claw/src/components/FurniturePanel.jsx) renders the corresponding panel
-
-This means the office layout now carries product meaning. Changing furniture placement can also change how users discover key actions.
+This lets the same extension build work on different machines without re-baking a token.
 
 ## Installation
 
@@ -71,7 +74,7 @@ This means the office layout now carries product meaning. Changing furniture pla
 
 1. Clone the repo.
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/tengtutors/visual-claw.git
    cd visual-claw
    ```
 
@@ -85,7 +88,7 @@ This means the office layout now carries product meaning. Changing furniture pla
    npm run build
    ```
 
-4. Load `dist/` in Chrome via `chrome://extensions`.
+4. Load `dist/` in Chrome via `chrome://extensions` (Developer mode → Load unpacked).
 
 ## Development
 
@@ -95,109 +98,65 @@ Watch mode:
 npm run watch
 ```
 
-Then reload the unpacked extension in Chrome.
+Then reload the unpacked extension in Chrome after changes.
 
-## Optional Local Services
+## Local File Server
 
-### Workspace file server
-
-Run this if you want the extension to read agent metadata, load model lists, or read and edit safe workspace files from the agent sheet.
+Run this to enable agent management, layout persistence, and file editing:
 
 ```bash
 node tools/workspace-file-server.js
 ```
 
-What it provides:
+The server runs on `http://127.0.0.1:18790` and provides:
 
-- `GET /agents`
-- `GET /gateway-config`
-- `GET /models`
-- `GET /file?agent=<id>&path=<relpath>`
-- `POST /file?agent=<id>&path=<relpath>`
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agents` | GET | List registered agents |
+| `/gateway-config` | GET | Gateway connection details |
+| `/office-layout` | GET/POST | Load or save furniture layout |
+| `/file` | GET/POST | Read or edit agent workspace files |
+| `/create-agent` | POST | Deploy a new agent (with Telegram channel + routing) |
+| `/delete-agent` | POST | Remove an agent |
+| `/gateway-restart` | POST | Restart the OpenClaw gateway |
+| `/cron` | GET | List scheduled cron jobs |
+| `/cron-add` | POST | Create a new cron job |
+| `/cron-toggle` | POST | Enable or disable a cron job |
+| `/cron-delete` | POST | Delete a cron job |
 
-Notes:
+If the server is not running, the extension still works as a visualizer but management features show fallback messages.
 
-- It runs on `http://127.0.0.1:18790`
-- It reads agent workspaces from `~/.openclaw/openclaw.json`
-- Writes are intentionally limited to `SOUL.md`, `IDENTITY.md`, `TOOLS.md`, `USER.md`, and `MEMORY.md`
+## Tools
 
-If the server is not running, the extension still works as a visualizer, but file-based features will show fallback messages.
+### Interior Design Editor
+`tools/interior-design.html` — Standalone browser tool for planning furniture placement. Drag items from a catalog, set collisions and interactions, then export or save directly to the file server.
 
-## Interior Design Tool
-
-The interior design tool lives at [tools/interior-design.html](/Users/teng/visual%20claw/tools/interior-design.html). It is a standalone browser tool for planning furniture placement before copying the layout into the app.
-
-Use it when you want to:
-
-- rearrange the office visually
-- test new furniture positions
-- experiment with which objects should become interactive
-- export a layout snapshot for later incorporation into `tile-map.js`
-
-Basic usage:
-
-1. Open `tools/interior-design.html` in a browser.
-2. Select a furniture item from the catalog.
-3. Click on the map to place it.
-4. Drag placed items to refine their positions.
-5. Click an item to edit coordinates or flip it.
-6. Use `Export JSON` to copy the current layout.
-
-Built-in controls:
-
-- `Delete Mode` for removing items quickly
-- `Undo`
-- `Clear All`
-- `Load Defaults`
-- `Export JSON`
-- `Import JSON`
-
-## How To Incorporate A New Layout
-
-The interior design tool does not automatically update the runtime map. Layout changes are incorporated manually into [src/lib/tile-map.js](/Users/teng/visual%20claw/src/lib/tile-map.js).
-
-Recommended process:
-
-1. Start from `Load Defaults` in the design tool so you are editing the current office baseline.
-2. Make layout changes and export the JSON.
-3. Translate the exported items into `FURNITURE_OBJECTS`.
-4. For each object, define:
-   - `id`
-   - `src`
-   - `x` and `y`
-   - `collision` if the item should block movement
-   - `zAnchor`
-5. If the object should open a UI panel, add a matching entry to `INTERACTIVE_FURNITURE`.
-6. Rebuild the extension and verify the layout in the side panel and dashboard.
-
-When copying from the design tool into `tile-map.js`:
-
-- `hasCollision: true` should usually become a collision rectangle sized from the source sprite and `TILE_SCALE`
-- decorative items can keep `collision: null`
-- table-top items and wall decor often need a higher or custom `zAnchor`
-- interactive meaning is defined separately from placement, so placement alone will not make an item clickable
+### Avatar Editor
+`tools/avatar-editor.html` — Create custom agent avatars. Upload an image, crop it, and generate a full sprite sheet with walk/idle/work animations. Includes flood-fill background removal for clean transparency.
 
 ## Project Structure
 
-```text
+```
 src/
   background/               Chrome extension service worker
-  components/               React UI components and overlay panels
+  components/               React UI — panels, skill sheet, map overlay
   dashboard/                Full-page dashboard entry
-  lib/                      State, connection, movement, and tile-map definitions
-  pixi/                     Pixi scene, asset loading, and character helpers
+  lib/                      State, connection, movement, tile-map definitions
+  pixi/                     PixiJS scene, character rendering, animations
   sidepanel/                Chrome side panel entry
 
 tools/
-  interior-design.html      Standalone office layout editor
-  workspace-file-server.js  Local helper server for workspace/model/file access
+  avatar-editor.html        Custom sprite avatar creator
+  avatar-editor.js          Avatar editor logic
+  interior-design.html      Drag-and-drop office layout editor
+  interior-design.js        Layout editor logic
+  workspace-file-server.js  Local bridge server for OpenClaw CLI + filesystem
+
+public/
+  data/                     Persisted office layout JSON
+  sprites/                  Character sprite sheets and tilesets
+  assets/                   Office tileset packs and room backgrounds
 ```
-
-## Design Notes
-
-- The source of truth for the shipped office layout is [src/lib/tile-map.js](/Users/teng/visual%20claw/src/lib/tile-map.js)
-- The interior design tool is a planning and export tool, not the runtime renderer
-- Interactive furniture is part of the UX architecture now, not just visual decoration
 
 ## License
 
