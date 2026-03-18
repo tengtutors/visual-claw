@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { STATE_COLORS } from '../lib/constants.js';
 import { useSelectedAgent, useActions, useStore } from '../lib/store.jsx';
 import { drawCharacterPortrait, getCharacterKey } from '../pixi/utils/characters.js';

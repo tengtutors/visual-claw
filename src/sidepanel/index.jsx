@@ -25,6 +25,15 @@ function SidePanel() {
         <h1 className="app-title">OpenClaw Live Workspace</h1>
         <div className="header-actions">
           <LayoutEditorButton compact />
+          <button className="btn btn-sm" onClick={() => {
+            if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+              chrome.runtime.sendMessage({ type: 'OPEN_AVATAR_EDITOR' }).catch(() => {
+                window.open(chrome.runtime.getURL('tools/avatar-editor.html'), '_blank');
+              });
+            }
+          }} title="Open avatar editor">
+            Avatar
+          </button>
           <button className="btn btn-sm btn-dash" onClick={openDashboard} title="Open full dashboard">
             ↗
           </button>
