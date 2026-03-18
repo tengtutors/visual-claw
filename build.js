@@ -40,8 +40,10 @@ async function run() {
   fs.mkdirSync(path.join('dist', 'tools'), { recursive: true });
   fs.cpSync(path.join('tools', 'interior-design.html'), path.join('dist', 'tools', 'interior-design.html'));
   fs.cpSync(path.join('tools', 'interior-design.js'), path.join('dist', 'tools', 'interior-design.js'));
+  fs.cpSync(path.join('tools', 'avatar-editor.html'), path.join('dist', 'tools', 'avatar-editor.html'));
+  fs.cpSync(path.join('tools', 'avatar-editor.js'), path.join('dist', 'tools', 'avatar-editor.js'));
   fs.cpSync('manifest.json', 'dist/manifest.json');
-  console.log('Copied public/, tools/interior-design.html + manifest.json -> dist/');
+  console.log('Copied public/, tools/interior-design.html, tools/avatar-editor.html + manifest.json -> dist/');
 }
 
 run().catch((e) => {

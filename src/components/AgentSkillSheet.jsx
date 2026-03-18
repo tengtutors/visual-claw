@@ -78,11 +78,14 @@ function SkillBar({ name, value }) {
 export default function AgentSkillSheet() {
   const agent = useSelectedAgent();
   const { agents } = useStore();
-  const { deselectAgent, setAgentState } = useActions();
+  const { deselectAgent, setAgentState, renameAgent } = useActions();
   const panelRef = useRef(null);
   const previewCanvasRef = useRef(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const nameInputRef = useRef(null);
 
-  // Draw matching portrait from the same Metro City sheet used on the map
+  // Draw portrait — custom sprite if assigned, otherwise layered character sheet
   useEffect(() => {
     if (!agent || !previewCanvasRef.current) return;
 
@@ -93,9 +96,38 @@ export default function AgentSkillSheet() {
     canvas.style.width = '80px';
     canvas.style.height = '90px';
 
-    drawCharacterPortrait(canvas, getCharacterKey(agent), { scale: 2 * dpr, offsetY: 6 * dpr }).catch((error) => {
-      console.error('Failed to draw character portrait', error);
-    });
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      chrome.storage.local.get(['customSpriteAssignments', 'customSpriteData'], (result) => {
+        const assignments = result.customSpriteAssignments || {};
+        const spriteData  = result.customSpriteData        || {};
+        const agentKeys = [agent.id, agent.name, agent.botUsername].filter(Boolean);
+        const spriteName = agentKeys.reduce((found, k) => {
+          if (found) return found;
+          const match = Object.keys(assignments).find(ak => ak.toLowerCase() === k.toLowerCase());
+          return match ? assignments[match] : null;
+        }, null);
+
+        if (spriteName && spriteData[spriteName]?.frameUrls?.length) {
+          const img = new Image();
+          img.onload = () => {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.imageSmoothingEnabled = false;
+            const size = Math.min(canvas.width, canvas.height);
+            const x = (canvas.width  - size) / 2;
+            const y = (canvas.height - size) / 2;
+            ctx.drawImage(img, x, y, size, size);
+          };
+          img.src = spriteData[spriteName].frameUrls[0];
+          return;
+        }
+        drawCharacterPortrait(canvas, getCharacterKey(agent), { scale: 2 * dpr, offsetY: 6 * dpr }).catch(console.error);
+      });
+    } else {
+      drawCharacterPortrait(canvas, getCharacterKey(agent), { scale: 2 * dpr, offsetY: 6 * dpr }).catch((error) => {
+        console.error('Failed to draw character portrait', error);
+      });
+    }
   }, [agent]);
 
   // Close on click outside
@@ -103,7 +135,6 @@ export default function AgentSkillSheet() {
     if (!agent) return;
     function handleClick(e) {
       if (panelRef.current && !panelRef.current.contains(e.target)) {
-        // Check if click was on an agent card or workspace canvas (let those handle selection)
         if (e.target.closest('.agent-card') || e.target.closest('.workspace-canvas')) return;
         deselectAgent();
       }
@@ -111,6 +142,17 @@ export default function AgentSkillSheet() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [agent, deselectAgent]);
+
+  function startEdit() {
+    setNameInput(agent.name);
+    setEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  }
+
+  function commitEdit() {
+    if (nameInput.trim()) renameAgent(agent, nameInput);
+    setEditingName(false);
+  }
 
   if (!agent) return null;
 
@@ -141,7 +183,23 @@ export default function AgentSkillSheet() {
             <span className="rpg-state-ring" style={{ borderColor: stateColor }} />
           </div>
           <div className="rpg-header-info">
-            <div className="rpg-name">{agent.name}</div>
+            <div className="rpg-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {editingName ? (
+                <input
+                  ref={nameInputRef}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingName(false); }}
+                  onBlur={commitEdit}
+                  style={{ background: '#0d1117', color: '#fbbf24', border: '1px solid #fbbf24', borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit', fontWeight: 'inherit', letterSpacing: 'inherit', padding: '1px 6px', width: 160 }}
+                />
+              ) : (
+                <>
+                  {agent.name}
+                  <button onClick={startEdit} title="Rename agent" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 11, padding: '0 2px', lineHeight: 1 }}>✎</button>
+                </>
+              )}
+            </div>
             <div className="rpg-class">{agent.classTitle || agent.role}</div>
             <div className="rpg-role-tag">{agent.role}</div>
             <div className="rpg-header-row">

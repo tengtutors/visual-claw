@@ -11,17 +11,14 @@ const MAX_EVENTS = 200;
 
 // ─── Agent name formatting ───
 
-// Map OpenClaw agent IDs to friendly display names
-const AGENT_DISPLAY_NAMES = {
-  main: 'Macoteng',
-  second: 'Acevideo',
-  vision: 'Tingeyes',
-  ting: 'Ting',
-  tung: 'Tung',
-};
+// User-set display name overrides, loaded from chrome.storage on init
+// keyed by botUsername (e.g. "main" → "Tang-lenovo")
+let agentNameOverrides = {};
+
+export function getAgentNameOverrides() { return agentNameOverrides; }
 
 function formatBotName(agentId) {
-  if (AGENT_DISPLAY_NAMES[agentId]) return AGENT_DISPLAY_NAMES[agentId];
+  if (agentNameOverrides[agentId]) return agentNameOverrides[agentId];
   return agentId
     .replace(/_bot$/i, '')
     .replace(/_/g, ' ')
@@ -202,6 +199,13 @@ function reducer(state, action) {
     case 'DESELECT_AGENT':
       return { ...state, selectedAgentId: null };
 
+    case 'RENAME_AGENT': {
+      const agents = state.agents.map((a) =>
+        a.id === action.agentId ? { ...a, name: action.name } : a
+      );
+      return { ...state, agents };
+    }
+
     default:
       return state;
   }
@@ -213,9 +217,9 @@ export function StoreProvider({ children }) {
   const openclawConnRef = useRef(null);
   const demoTimerRef = useRef(null);
 
-  // Persist state to chrome.storage (only in demo mode)
+  // Persist agents to chrome.storage so avatar-editor can see connected agents
   useEffect(() => {
-    if (state.demoMode && state.agents.length > 0 && typeof chrome !== 'undefined' && chrome.storage?.local) {
+    if (state.agents.length > 0 && typeof chrome !== 'undefined' && chrome.storage?.local) {
       chrome.storage.local.set({ agentState: { agents: state.agents, events: state.events } });
     }
   }, [state.agents, state.events, state.demoMode]);
@@ -229,6 +233,19 @@ export function StoreProvider({ children }) {
         }
       });
     }
+  }, []);
+
+  // Load agent name overrides from chrome.storage on mount
+  useEffect(() => {
+    if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
+    chrome.storage.local.get('agentNameOverrides', (result) => {
+      if (result.agentNameOverrides && typeof result.agentNameOverrides === 'object') {
+        agentNameOverrides = result.agentNameOverrides;
+        Object.entries(agentNameOverrides).forEach(([botUsername, name]) => {
+          dispatch({ type: 'RENAME_AGENT', agentId: `bot-${botUsername}`, name });
+        });
+      }
+    });
   }, []);
 
   // Update badge when blocked agents change
@@ -413,5 +430,15 @@ export function useActions() {
     dispatch({ type: 'DESELECT_AGENT' });
   }, [dispatch]);
 
-  return { toggleDemoMode, simulateChange, setAgentState, selectAgent, deselectAgent };
+  const renameAgent = useCallback((agent, newName) => {
+    const trimmed = newName.trim();
+    if (!trimmed || !agent) return;
+    agentNameOverrides[agent.botUsername] = trimmed;
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      chrome.storage.local.set({ agentNameOverrides });
+    }
+    dispatch({ type: 'RENAME_AGENT', agentId: agent.id, name: trimmed });
+  }, [dispatch]);
+
+  return { toggleDemoMode, simulateChange, setAgentState, selectAgent, deselectAgent, renameAgent };
 }

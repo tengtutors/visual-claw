@@ -67,12 +67,171 @@ function getDirection(sprite) {
   return 'down';
 }
 
-function getFrameIndex(sprite) {
-  return sprite.animation === 'walk' ? sprite.walkFrame % 6 : 0;
+function getFrameIndex(sprite, walkCycle) {
+  const len = walkCycle ? walkCycle.length : 6;
+  return sprite.animation === 'walk' ? sprite.walkFrame % len : 0;
+}
+
+// ── Custom sprite helpers ──────────────────────────────────
+
+function loadDataUrlAsTexture(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth  || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        const tex = Texture.from(canvas);
+        applyNearestScale(tex);
+        resolve(tex);
+      } catch (e) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+function makeCustomLibraryEntry(frameTextures, scale = 1.0) {
+  const f = frameTextures;
+
+  if (f.length >= 12) {
+    // ── 12-frame format ──────────────────────────────────────────
+    // 0-7:  Walk (same layout as 9-frame)
+    //       0=FrontIdle 1=FWalkA 2=FWalkB
+    //       3=BackIdle  4=BWalkA 5=BWalkB
+    //       6=SideA     7=SideB
+    // 8-9:  Chill/idle animation loop (2 frames)
+    // 10-11: Work animation loop (2 frames)
+    const frontIdle  = f[0];
+    const frontWalkA = f[1];
+    const frontWalkB = f[2];
+    const backIdle   = f[3];
+    const backWalkA  = f[4];
+    const backWalkB  = f[5];
+    const sideWalkA  = f[6];
+    const sideWalkB  = f[7];
+    return {
+      scale,
+      chillFrames:  [f[8], f[9]],
+      actionFrames: [f[10], f[11]],
+      directions: {
+        down:  { idle: frontIdle, walk: [frontIdle, frontWalkA, frontWalkB, frontWalkA] },
+        up:    { idle: backIdle,  walk: [backIdle,  backWalkA,  backWalkB,  backWalkA]  },
+        right: { idle: sideWalkA, walk: [sideWalkA, sideWalkB,  sideWalkA,  sideWalkB]  },
+        left:  { idle: sideWalkA, walk: [sideWalkA, sideWalkB,  sideWalkA,  sideWalkB]  },
+      },
+    };
+  }
+
+  if (f.length >= 8) {
+    // ── 8/9-frame format ──────────────────────────────────────────
+    // 0=FrontIdle 1=FWalkA 2=FWalkB 3=BackIdle 4=BWalkA 5=BWalkB 6=SideA 7=SideB 8=Chill 9=Work
+    const frontIdle  = f[0];
+    const frontWalkA = f[1];
+    const frontWalkB = f[2];
+    const backIdle   = f[3];
+    const backWalkA  = f[4];
+    const backWalkB  = f[5];
+    const sideWalkA  = f[6];
+    const sideWalkB  = f[7];
+    const chill      = f[8]  || frontIdle;
+    const action     = f[9]  || f[8] || frontIdle;
+    return {
+      scale,
+      chillFrames:  [chill],
+      actionFrames: [action],
+      directions: {
+        down:  { idle: frontIdle, walk: [frontIdle, frontWalkA, frontWalkB, frontWalkA] },
+        up:    { idle: backIdle,  walk: [backIdle,  backWalkA,  backWalkB,  backWalkA]  },
+        right: { idle: sideWalkA, walk: [sideWalkA, sideWalkB,  sideWalkA,  sideWalkB]  },
+        left:  { idle: sideWalkA, walk: [sideWalkA, sideWalkB,  sideWalkA,  sideWalkB]  },
+      },
+    };
+  }
+
+  // ── Legacy 5-frame format ───────────────────────────────────────
+  // 0=Idle 1=WalkA 2=WalkB 3=Back 4=Action
+  const idle   = f[0];
+  const walkA  = f[1] || idle;
+  const walkB  = f[2] || idle;
+  const back   = f[3] || idle;
+  const action = f[4] || idle;
+  return {
+    scale,
+    chillFrames:  [idle],
+    actionFrames: [action],
+    directions: {
+      down:  { idle, walk: [idle, walkA, walkB, walkA] },
+      up:    { idle: back, walk: [back, back, back, back] },
+      right: { idle: walkA, walk: [walkA, walkB, walkA, walkB] },
+      left:  { idle: walkA, walk: [walkA, walkB, walkA, walkB] },
+    },
+  };
+}
+
+// custom sprite state — rebuilt whenever chrome.storage changes
+const customLibrary     = new Map(); // spriteName → libraryEntry
+const customAssignments = new Map(); // agentKey (lowercase) → spriteName
+
+async function loadCustomAssignments() {
+  customLibrary.clear();
+  customAssignments.clear();
+
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
+
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['customSpriteData', 'customSpriteAssignments'], async (result) => {
+      const spriteData    = result.customSpriteData        || {};
+      const assignments   = result.customSpriteAssignments || {};
+
+      // Build library entries
+      for (const [spriteName, data] of Object.entries(spriteData)) {
+        if (!data?.frameUrls?.length) continue;
+        const textures = (await Promise.all(data.frameUrls.map(loadDataUrlAsTexture))).filter(Boolean);
+        if (textures.length) customLibrary.set(spriteName, makeCustomLibraryEntry(textures, data.scale ?? 1.0));
+      }
+
+      // Map agent keys → sprite names (normalise to lowercase)
+      for (const [agentKey, spriteName] of Object.entries(assignments)) {
+        customAssignments.set(agentKey.toLowerCase(), spriteName);
+      }
+
+      resolve();
+    });
+  });
+}
+
+function getCustomEntry(agent) {
+  const keys = [agent.id, agent.name, agent.botUsername].filter(Boolean);
+  for (const k of keys) {
+    const spriteName = customAssignments.get(k.toLowerCase());
+    if (spriteName && customLibrary.has(spriteName)) return customLibrary.get(spriteName);
+  }
+  return null;
 }
 
 export async function createOfficeScene(app) {
   await ensureOfficeLayoutLoaded();
+  await loadCustomAssignments();
+
+  // Reload custom sprites whenever the avatar-editor saves changes
+  if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && (changes.customSpriteData || changes.customSpriteAssignments)) {
+        loadCustomAssignments().then(() => {
+          // Destroy all agent sprite nodes so they get recreated with new sprites
+          for (const [id, node] of spriteNodes) {
+            node.container.parent?.removeChild(node.container);
+            node.container.destroy({ children: true });
+          }
+          spriteNodes.clear();
+        });
+      }
+    });
+  }
+
   const characterLibrary = new Map();
 
   const stage = app.stage;
@@ -175,12 +334,17 @@ export async function createOfficeScene(app) {
   async function ensureAgentNode(agent) {
     let node = spriteNodes.get(agent.id);
     if (node) return node;
-    const libraryEntry = await ensureLibraryEntry(getCharacterKey(agent));
+
+    // Use custom sprite if assigned, otherwise fall back to layered character library
+    const customEntry = getCustomEntry(agent);
+    const libraryEntry = customEntry || await ensureLibraryEntry(getCharacterKey(agent));
+
     const container = new Container();
     const sprite = new Sprite(libraryEntry.directions.down.idle);
     const ring = new Graphics();
     sprite.anchor.set(0.5, 1);
-    sprite.scale.set(AGENT_WORLD_SCALE, AGENT_WORLD_SCALE);
+    const spriteScale = AGENT_WORLD_SCALE * (customEntry ? (customEntry.scale ?? 1.0) : 1.0);
+    sprite.scale.set(spriteScale, spriteScale);
     sprite.roundPixels = true;
     ring.visible = false;
 
@@ -241,11 +405,33 @@ export async function createOfficeScene(app) {
       const agent = agentById.get(spriteState.id);
       const node = spriteNodes.get(spriteState.id);
       if (!agent || !node) continue;
-      const frames = node.libraryEntry.directions[getDirection(spriteState)];
+      const lib    = node.libraryEntry;
+      const frames = lib.directions[getDirection(spriteState)];
+      const baseY  = Math.round(spriteState.y);
       node.container.x = Math.round(spriteState.x);
-      node.container.y = Math.round(spriteState.y);
-      node.container.zIndex = Math.round(spriteState.y);
-      node.sprite.texture = spriteState.animation === 'walk' ? frames.walk[getFrameIndex(spriteState)] : frames.idle;
+      node.container.zIndex = baseY;
+
+      const anim = spriteState.animation;
+
+      if (anim === 'walk') {
+        node.sprite.texture = frames.walk[getFrameIndex(spriteState, frames.walk)];
+        node.sprite.y = 0;
+      } else if ((anim === 'think' || anim === 'talk') && lib.actionFrames) {
+        const af  = lib.actionFrames;
+        const idx = Math.floor(Date.now() / 150) % af.length;
+        node.sprite.texture = af[idx];
+        node.sprite.y = af.length === 1 ? Math.round(Math.sin(Date.now() * 0.008) * 1.5) : 0;
+      } else if (anim === 'idle' && lib.chillFrames) {
+        const cf  = lib.chillFrames;
+        const idx = Math.floor(Date.now() / 500) % cf.length;
+        node.sprite.texture = cf[idx];
+        node.sprite.y = cf.length === 1 ? Math.round(Math.sin(Date.now() * 0.0015) * 1) : 0;
+      } else {
+        node.sprite.texture = frames.idle;
+        node.sprite.y = 0;
+      }
+
+      node.container.y = baseY;
       applyNearestScale(node.sprite.texture);
       node.ring.clear();
       if (spriteState.id === selectedAgentId || spriteState.id === hoveredAgentId) {
