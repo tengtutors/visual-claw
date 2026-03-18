@@ -68,7 +68,10 @@ This lets the same extension build work on different machines without re-baking 
 
 - Node.js 18+
 - Google Chrome
-- A local OpenClaw gateway
+- A local OpenClaw gateway, started with:
+  ```bash
+  openclaw gateway --auth password --password claw
+  ```
 
 ### Setup
 
