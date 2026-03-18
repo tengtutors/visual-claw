@@ -1,11 +1,12 @@
 {
   "name": "visual-claw",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "private": true,
   "scripts": {
     "build": "node build.js",
     "watch": "node build.js --watch",
-    "icons": "node scripts/generate-icons.js"
+    "icons": "node scripts/generate-icons.js",
+    "bridge": "node bridge/telegram-bridge.js"
   },
   "dependencies": {
     "@pixi/tilemap": "^5.0.2",

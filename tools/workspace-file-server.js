@@ -87,6 +87,58 @@ function writeOfficeLayout(layout) {
   return { ok: true };
 }
 
+function toHttpUrl(value) {
+  if (!value || typeof value !== 'string') return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol === 'ws:') parsed.protocol = 'http:';
+    if (parsed.protocol === 'wss:') parsed.protocol = 'https:';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
+function toWsUrl(value) {
+  if (!value || typeof value !== 'string') return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol === 'http:') parsed.protocol = 'ws:';
+    if (parsed.protocol === 'https:') parsed.protocol = 'wss:';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
+function getGatewayConfig(config) {
+  const gateway = config?.gateway || {};
+  const token = gateway?.auth?.token || '';
+  const host = gateway?.host || '127.0.0.1';
+  const port = Number.isFinite(Number(gateway?.port)) ? Number(gateway.port) : 18789;
+
+  const httpUrl = toHttpUrl(gateway.url)
+    || toHttpUrl(gateway.httpUrl)
+    || (gateway.wsUrl ? toHttpUrl(gateway.wsUrl) : null)
+    || `http://${host}:${port}`;
+
+  const wsUrl = toWsUrl(gateway.wsUrl)
+    || toWsUrl(gateway.url)
+    || `${httpUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')}`;
+
+  return {
+    token,
+    httpUrl,
+    wsUrl,
+    candidates: [
+      { wsUrl, token },
+      { wsUrl: wsUrl.replace('127.0.0.1', 'localhost'), token },
+      { wsUrl: 'ws://127.0.0.1:18789', token },
+      { wsUrl: 'ws://localhost:18789', token },
+    ].filter((entry, index, arr) => entry.wsUrl && arr.findIndex((other) => other.wsUrl === entry.wsUrl && other.token === entry.token) === index),
+  };
+}
+
 const server = http.createServer((req, res) => {
   // CORS headers for Chrome extension
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -153,6 +205,25 @@ const server = http.createServer((req, res) => {
     }
     res.writeHead(200);
     res.end(JSON.stringify(models));
+    return;
+  }
+
+  if (url.pathname === '/gateway-config') {
+    const config = loadConfig();
+    if (!config) {
+      res.writeHead(404);
+      res.end(JSON.stringify({
+        error: 'Could not read openclaw.json',
+        candidates: [
+          { wsUrl: 'ws://127.0.0.1:18789', token: '' },
+          { wsUrl: 'ws://localhost:18789', token: '' },
+        ],
+      }));
+      return;
+    }
+    const gatewayConfig = getGatewayConfig(config);
+    res.writeHead(200);
+    res.end(JSON.stringify(gatewayConfig));
     return;
   }
 

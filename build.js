@@ -4,16 +4,6 @@ const fs = require('fs');
 
 const watch = process.argv.includes('--watch');
 
-// Load .env file for build-time token injection
-const envPath = path.resolve(__dirname, '.env');
-const envVars = {};
-if (fs.existsSync(envPath)) {
-  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
-    const match = line.match(/^(\w+)=(.*)$/);
-    if (match) envVars[match[1]] = match[2].trim();
-  }
-}
-
 const commonOptions = {
   bundle: true,
   minify: !watch,
@@ -23,9 +13,6 @@ const commonOptions = {
   jsxImportSource: 'react',
   loader: { '.jsx': 'jsx', '.js': 'js' },
   outdir: path.resolve(__dirname, 'dist'),
-  define: {
-    'process.env.OPENCLAW_AUTH_TOKEN': JSON.stringify(envVars.OPENCLAW_AUTH_TOKEN || ''),
-  },
 };
 
 const entries = [
@@ -50,8 +37,11 @@ async function run() {
 
   // Copy static files
   fs.cpSync('public', 'dist', { recursive: true });
+  fs.mkdirSync(path.join('dist', 'tools'), { recursive: true });
+  fs.cpSync(path.join('tools', 'interior-design.html'), path.join('dist', 'tools', 'interior-design.html'));
+  fs.cpSync(path.join('tools', 'interior-design.js'), path.join('dist', 'tools', 'interior-design.js'));
   fs.cpSync('manifest.json', 'dist/manifest.json');
-  console.log('Copied public/ + manifest.json -> dist/');
+  console.log('Copied public/, tools/interior-design.html + manifest.json -> dist/');
 }
 
 run().catch((e) => {

@@ -6,6 +6,7 @@ import EventLog from '../components/EventLog.jsx';
 import DemoControls from '../components/DemoControls.jsx';
 import StatusBar from '../components/StatusBar.jsx';
 import AgentSkillSheet from '../components/AgentSkillSheet.jsx';
+import LayoutEditorButton from '../components/LayoutEditorButton.jsx';
 
 function SidePanel() {
   const { events } = useStore();
@@ -21,10 +22,13 @@ function SidePanel() {
   return (
     <div className="sidepanel">
       <header className="app-header">
-        <h1 className="app-title">Visual Claw</h1>
-        <button className="btn btn-sm btn-dash" onClick={openDashboard} title="Open full dashboard">
-          ↗
-        </button>
+        <h1 className="app-title">OpenClaw Live Workspace</h1>
+        <div className="header-actions">
+          <LayoutEditorButton compact />
+          <button className="btn btn-sm btn-dash" onClick={openDashboard} title="Open full dashboard">
+            ↗
+          </button>
+        </div>
       </header>
 
       <DemoControls />

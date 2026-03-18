@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Visual Claw",
-  "version": "1.0.0",
-  "description": "Visualize your AI agents in real time \u2014 see who is working, waiting, blocked, or collaborating.",
+  "name": "OpenClaw Live Workspace",
+  "version": "1.2.0",
+  "description": "Visualize your OpenClaw AI agents in a pixel-art office. Watch agents work in real time, customize your office layout with a drag-and-drop editor, and monitor agent activity from your browser sidebar.",
   "permissions": [
     "sidePanel",
     "storage",
@@ -10,7 +10,10 @@
     "alarms"
   ],
   "host_permissions": [
-    "http://127.0.0.1:18790/*"
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "ws://127.0.0.1/*",
+    "ws://localhost/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js"
@@ -24,7 +27,7 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Visual Claw"
+    "default_title": "OpenClaw Live Workspace"
   },
   "icons": {
     "16": "icons/icon16.png",

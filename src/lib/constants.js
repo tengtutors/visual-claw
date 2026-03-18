@@ -58,7 +58,8 @@ export const WS_URL = 'ws://localhost:9100/ws';
 export const API_URL = 'http://localhost:9100';
 export const POLL_INTERVAL_MS = 1500;
 
-// OpenClaw gateway
-export const OPENCLAW_WS_URL = 'ws://localhost:18789';
-export const OPENCLAW_API_URL = 'http://localhost:18789';
-export const OPENCLAW_AUTH_TOKEN = process.env.OPENCLAW_AUTH_TOKEN || '';
+// OpenClaw runtime discovery
+export const OPENCLAW_FALLBACK_WS_URLS = [
+  'ws://127.0.0.1:18789',
+  'ws://localhost:18789',
+];

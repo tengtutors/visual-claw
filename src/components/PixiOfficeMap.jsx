@@ -5,10 +5,25 @@ import { useStore, useActions } from '../lib/store.jsx';
 import { MovementController } from '../lib/movement.js';
 import { MAP_W, MAP_H } from '../lib/office-map.js';
 import { createOfficeScene } from '../pixi/scene/officeScene.js';
-import { hitTestFurniture } from '../lib/tile-map.js';
+import { hitTestFurniture, ensureOfficeLayoutLoaded } from '../lib/tile-map.js';
 import FurniturePanel from './FurniturePanel.jsx';
 
 export default function PixiOfficeMap() {
+  const [layoutVersion, setLayoutVersion] = useState(0);
+
+  // Listen for layout changes from the editor
+  useEffect(() => {
+    if (typeof chrome === 'undefined' || !chrome.runtime?.onMessage) return;
+    const handler = (msg) => {
+      if (msg.type === 'LAYOUT_CHANGED' || msg.type === 'LAYOUT_UPDATED') {
+        ensureOfficeLayoutLoaded(true).then(() => {
+          setLayoutVersion(v => v + 1);
+        });
+      }
+    };
+    chrome.runtime.onMessage.addListener(handler);
+    return () => chrome.runtime.onMessage.removeListener(handler);
+  }, []);
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
   const appRef = useRef(null);
@@ -189,7 +204,7 @@ export default function PixiOfficeMap() {
       sceneRef.current = null;
       appRef.current = null;
     };
-  }, [handlePointer]);
+  }, [handlePointer, layoutVersion]);
 
   return (
     <div className="workspace-container" ref={containerRef} style={{ position: 'relative' }}>

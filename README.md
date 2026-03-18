@@ -24,8 +24,21 @@ Visual Claw now has three layers that work together:
    - Clicking interactive furniture opens a panel tied to that object.
 
 3. **Optional local tools**
-   - `tools/workspace-file-server.js` exposes safe local endpoints for reading agent metadata and selected workspace files.
+   - `tools/workspace-file-server.js` exposes safe local endpoints for reading agent metadata, selected workspace files, and local gateway discovery.
    - `tools/interior-design.html` is a standalone design surface for planning and exporting furniture layouts.
+
+## Gateway Discovery
+
+Visual Claw now discovers the local OpenClaw gateway at runtime instead of depending on a token baked into the extension build.
+
+At startup it:
+
+1. asks the local helper server for gateway details from `~/.openclaw/openclaw.json`
+2. receives the local WebSocket URL and auth token
+3. attempts the discovered gateway first
+4. falls back to standard localhost gateway addresses if discovery is unavailable
+
+This lets the same extension build work on different computers without re-baking a machine-specific token.
 
 ## Interactive Furniture Workflow
 
@@ -34,7 +47,6 @@ The office is no longer just decorative. Some furniture pieces are mapped to pro
 Current mappings:
 
 - `computer_topleft` -> `Create Agent`
-- `rug` -> `Gateway Setup`
 - `cooler_left` -> `Scheduled Tasks`
 - `vending_machine` -> `Workspace Settings`
 - `bookshelf_right` -> `Event Log`
@@ -68,17 +80,12 @@ This means the office layout now carries product meaning. Changing furniture pla
    npm install
    ```
 
-3. Add your OpenClaw gateway auth token to `.env`.
-   ```bash
-   OPENCLAW_AUTH_TOKEN=your_token_here
-   ```
-
-4. Build the extension.
+3. Build the extension.
    ```bash
    npm run build
    ```
 
-5. Load `dist/` in Chrome via `chrome://extensions`.
+4. Load `dist/` in Chrome via `chrome://extensions`.
 
 ## Development
 
@@ -103,6 +110,7 @@ node tools/workspace-file-server.js
 What it provides:
 
 - `GET /agents`
+- `GET /gateway-config`
 - `GET /models`
 - `GET /file?agent=<id>&path=<relpath>`
 - `POST /file?agent=<id>&path=<relpath>`

@@ -1,9 +1,7 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { STATE_COLORS } from '../lib/constants.js';
 import { useSelectedAgent, useActions, useStore } from '../lib/store.jsx';
 import { drawCharacterPortrait, getCharacterKey } from '../pixi/utils/characters.js';
-
-const FILE_SERVER = 'http://127.0.0.1:18790';
 
 const ROLE_AVATARS = {
   Planner: '📋', Developer: '👨‍💻', Reviewer: '🔍', Designer: '🎨',
@@ -73,167 +71,6 @@ function SkillBar({ name, value }) {
       </div>
       <span className="rpg-skill-rank" style={{ color }}>{rank}</span>
       <span className="rpg-skill-val">{value}</span>
-    </div>
-  );
-}
-
-function FileViewer({ agentId, fileName, title }) {
-  const [content, setContent] = useState(null);
-  const [editContent, setEditContent] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [saveMsg, setSaveMsg] = useState(null);
-  const [expanded, setExpanded] = useState(false);
-  const [editing, setEditing] = useState(false);
-
-  const fetchFile = useCallback(() => {
-    if (loading) return;
-    setLoading(true);
-    setError(null);
-    fetch(`${FILE_SERVER}/file?agent=${encodeURIComponent(agentId)}&path=${encodeURIComponent(fileName)}`)
-      .then(r => {
-        if (!r.ok) throw new Error(`${r.status}`);
-        return r.json();
-      })
-      .then(data => {
-        setContent(data.content);
-        setEditContent(data.content);
-        setExpanded(true);
-      })
-      .catch(() => setError('Could not load. Run: node tools/workspace-file-server.js'))
-      .finally(() => setLoading(false));
-  }, [agentId, fileName, loading]);
-
-  const saveFile = useCallback(() => {
-    if (saving) return;
-    setSaving(true);
-    setSaveMsg(null);
-    fetch(`${FILE_SERVER}/file?agent=${encodeURIComponent(agentId)}&path=${encodeURIComponent(fileName)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: editContent }),
-    })
-      .then(r => {
-        if (!r.ok) return r.json().then(d => { throw new Error(d.error); });
-        return r.json();
-      })
-      .then(() => {
-        setContent(editContent);
-        setEditing(false);
-        setSaveMsg('Saved');
-        setTimeout(() => setSaveMsg(null), 2000);
-      })
-      .catch(err => setSaveMsg(`Error: ${err.message}`))
-      .finally(() => setSaving(false));
-  }, [agentId, fileName, editContent, saving]);
-
-  return (
-    <div className="rpg-section">
-      <div
-        className="rpg-section-title"
-        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-        onClick={() => {
-          if (!content && !error) fetchFile();
-          else setExpanded(!expanded);
-        }}
-      >
-        <span>{title}</span>
-        <span style={{ fontSize: '11px', color: '#64748b' }}>
-          {loading ? 'loading...' : expanded ? '▼' : '▶'}
-        </span>
-      </div>
-      {error && (
-        <div style={{ fontSize: '11px', color: '#f59e0b', padding: '6px 0' }}>{error}</div>
-      )}
-      {expanded && content != null && !editing && (
-        <>
-          <pre style={{
-            fontSize: '13px',
-            lineHeight: '1.6',
-            color: '#c9d1d9',
-            background: '#0d1117',
-            padding: '12px',
-            borderRadius: '6px',
-            overflow: 'auto',
-            maxHeight: '400px',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            margin: '4px 0 0',
-            border: '1px solid #21262d',
-          }}>{content}</pre>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '6px', alignItems: 'center' }}>
-            <button
-              className="rpg-tool-badge"
-              style={{ cursor: 'pointer', border: '1px solid #3a5', background: '#1a2a1f', fontSize: '11px', padding: '3px 10px' }}
-              onClick={(e) => { e.stopPropagation(); setEditContent(content); setEditing(true); }}
-            >
-              Edit
-            </button>
-            <button
-              className="rpg-tool-badge"
-              style={{ cursor: 'pointer', border: '1px solid #335', background: '#1a1f35', fontSize: '11px', padding: '3px 10px' }}
-              onClick={(e) => { e.stopPropagation(); fetchFile(); }}
-            >
-              Reload
-            </button>
-            {saveMsg && (
-              <span style={{ fontSize: '11px', color: saveMsg === 'Saved' ? '#22c55e' : '#f59e0b' }}>{saveMsg}</span>
-            )}
-          </div>
-        </>
-      )}
-      {expanded && editing && (
-        <>
-          <textarea
-            style={{
-              width: '100%',
-              minHeight: '300px',
-              height: '400px',
-              fontSize: '13px',
-              lineHeight: '1.6',
-              color: '#c9d1d9',
-              background: '#0d1117',
-              padding: '12px',
-              borderRadius: '6px',
-              border: '1px solid #3a5',
-              resize: 'vertical',
-              fontFamily: "'Courier New', monospace",
-              margin: '4px 0 0',
-              boxSizing: 'border-box',
-            }}
-            value={editContent}
-            onChange={e => setEditContent(e.target.value)}
-            onClick={e => e.stopPropagation()}
-          />
-          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-            <button
-              style={{
-                cursor: 'pointer', border: 'none', background: '#22c55e', color: '#000',
-                fontSize: '11px', padding: '4px 14px', borderRadius: '4px', fontWeight: 'bold',
-                fontFamily: "'Courier New', monospace",
-              }}
-              onClick={(e) => { e.stopPropagation(); saveFile(); }}
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              style={{
-                cursor: 'pointer', border: '1px solid #444', background: 'transparent', color: '#888',
-                fontSize: '11px', padding: '4px 14px', borderRadius: '4px',
-                fontFamily: "'Courier New', monospace",
-              }}
-              onClick={(e) => { e.stopPropagation(); setEditing(false); setEditContent(content); }}
-            >
-              Cancel
-            </button>
-            {saveMsg && (
-              <span style={{ fontSize: '11px', color: saveMsg === 'Saved' ? '#22c55e' : '#f59e0b', alignSelf: 'center' }}>{saveMsg}</span>
-            )}
-          </div>
-        </>
-      )}
     </div>
   );
 }
@@ -403,9 +240,6 @@ export default function AgentSkillSheet() {
           </div>
         )}
 
-        {/* ─── Soul & Identity Files ─── */}
-        <FileViewer agentId={agent.id.replace(/^bot-/, '')} fileName="SOUL.md" title="Soul" />
-        <FileViewer agentId={agent.id.replace(/^bot-/, '')} fileName="IDENTITY.md" title="Identity" />
       </div>
     </div>
   );

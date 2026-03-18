@@ -15,8 +15,6 @@ export const TILESET_PATH = 'assets/office/tilesets/Office Tileset All 32x32 no 
 // Room grid dimensions (in tiles)
 export const ROOM_COLS = 12;
 export const ROOM_ROWS = 13;
-const OFFICE_LAYOUT_URL = 'http://127.0.0.1:18790/office-layout';
-
 // Where the tile grid starts in world coordinates (matches original room placement)
 export const ROOM_ORIGIN_X = 115;
 export const ROOM_ORIGIN_Y = 46;
@@ -326,16 +324,11 @@ export const FURNITURE_OBJECTS = [
 // Interactive furniture — maps furniture IDs to clickable actions
 // ---------------------------------------------------------------------------
 const INTERACTIVE_ACTIONS = {
-  create_agent: { action: 'create_agent', label: 'Create Agent', icon: '💻' },
-  gateway_token: { action: 'gateway_token', label: 'Gateway Setup', icon: '🚪' },
-  cron_tasks: { action: 'cron_tasks', label: 'Scheduled Tasks', icon: '⏰' },
+  edit_layout: { action: 'edit_layout', label: 'Edit Layout', icon: '📝' },
 };
 
 const DEFAULT_INTERACTIVE_BY_ID = {
-  computer_topleft: 'create_agent',
-  rug: 'gateway_token',
-  stool_left: 'cron_tasks',
-  stool_right: 'cron_tasks',
+  boxes_bottom: 'edit_layout',
 };
 
 let runtimeFurnitureObjects = FURNITURE_OBJECTS;
@@ -390,14 +383,15 @@ function createFurnitureObject(item) {
 export async function ensureOfficeLayoutLoaded(force = false) {
   if (!force && layoutLoadPromise) return layoutLoadPromise;
 
-  layoutLoadPromise = fetch(OFFICE_LAYOUT_URL, { cache: 'no-store' })
-    .then((res) => {
-      if (!res.ok) throw new Error(`Layout request failed: ${res.status}`);
-      return res.json();
-    })
+  layoutLoadPromise = loadLayoutFromStorage()
     .then((layout) => {
-      if (!Array.isArray(layout)) throw new Error('Layout payload must be an array');
-      runtimeFurnitureObjects = layout.map((item) => createFurnitureObject(item));
+      if (layout) {
+        runtimeFurnitureObjects = layout.map((item) => createFurnitureObject(item));
+        notifyLayoutChange();
+        return runtimeFurnitureObjects;
+      }
+      // No saved layout — use built-in defaults
+      runtimeFurnitureObjects = FURNITURE_OBJECTS;
       notifyLayoutChange();
       return runtimeFurnitureObjects;
     })
@@ -408,6 +402,18 @@ export async function ensureOfficeLayoutLoaded(force = false) {
     });
 
   return layoutLoadPromise;
+}
+
+function loadLayoutFromStorage() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) {
+    return Promise.resolve(null);
+  }
+  return chrome.storage.local.get('officeLayout').then((result) => {
+    if (Array.isArray(result.officeLayout) && result.officeLayout.length > 0) {
+      return result.officeLayout;
+    }
+    return null;
+  }).catch(() => null);
 }
 
 export function getFurnitureObjects() {

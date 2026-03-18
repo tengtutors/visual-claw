@@ -32,6 +32,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
   }
 
+  if (msg.type === 'OPEN_LAYOUT_EDITOR') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('tools/interior-design.html') });
+    sendResponse({ ok: true });
+  }
+
+  if (msg.type === 'LAYOUT_UPDATED') {
+    // Broadcast to all extension views (sidepanel, dashboard, etc.)
+    chrome.runtime.sendMessage({ type: 'LAYOUT_CHANGED' }).catch(() => {});
+    sendResponse({ ok: true });
+  }
+
   return true; // keep channel open for async response
 });
 
@@ -42,10 +53,18 @@ chrome.runtime.onInstalled.addListener(() => {
     title: 'Open Full Dashboard',
     contexts: ['action'],
   });
+  chrome.contextMenus?.create({
+    id: 'open-layout-editor',
+    title: 'Edit Layout',
+    contexts: ['action'],
+  });
 });
 
 chrome.contextMenus?.onClicked.addListener((info) => {
   if (info.menuItemId === 'open-dashboard') {
     chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
+  }
+  if (info.menuItemId === 'open-layout-editor') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('tools/interior-design.html') });
   }
 });
