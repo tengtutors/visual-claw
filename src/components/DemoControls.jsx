@@ -31,6 +31,12 @@ export default function DemoControls() {
           </button>
         </div>
       )}
+
+      {!demoMode && connectionStatus === 'disconnected' && openclawStatus === 'disconnected' && (
+        <div className="connect-banner">
+          <code>openclaw gateway --auth password --password claw</code>
+        </div>
+      )}
     </div>
   );
 }

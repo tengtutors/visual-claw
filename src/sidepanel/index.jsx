@@ -7,6 +7,7 @@ import DemoControls from '../components/DemoControls.jsx';
 import StatusBar from '../components/StatusBar.jsx';
 import AgentSkillSheet from '../components/AgentSkillSheet.jsx';
 import LayoutEditorButton from '../components/LayoutEditorButton.jsx';
+import AvatarEditorButton from '../components/AvatarEditorButton.jsx';
 
 function SidePanel() {
   const { events } = useStore();
@@ -25,6 +26,7 @@ function SidePanel() {
         <h1 className="app-title">OpenClaw Live Workspace</h1>
         <div className="header-actions">
           <LayoutEditorButton compact />
+          <AvatarEditorButton compact />
           <button className="btn btn-sm btn-dash" onClick={openDashboard} title="Open full dashboard">
             ↗
           </button>

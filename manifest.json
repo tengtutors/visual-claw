@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "OpenClaw Live Workspace",
-  "version": "1.2.0",
-  "description": "Visualize your OpenClaw AI agents in a pixel-art office. Watch agents work in real time, customize your office layout with a drag-and-drop editor, and monitor agent activity from your browser sidebar.",
+  "version": "1.3.0",
+  "description": "Visualize your OpenClaw AI agents in a pixel-art office. Watch agents work in real time and monitor activity from your sidebar.",
   "permissions": [
     "sidePanel",
     "storage",
