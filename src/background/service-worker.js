@@ -37,6 +37,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
   }
 
+  if (msg.type === 'OPEN_AVATAR_EDITOR') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('tools/avatar-editor.html') });
+    sendResponse({ ok: true });
+  }
+
   if (msg.type === 'LAYOUT_UPDATED') {
     // Broadcast to all extension views (sidepanel, dashboard, etc.)
     chrome.runtime.sendMessage({ type: 'LAYOUT_CHANGED' }).catch(() => {});
